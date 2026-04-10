@@ -18,4 +18,6 @@ class ParkingSection(Base):
 
     # Relationship
     floor = relationship("ParkingFloor", back_populates="sections")
+
+    cameras = relationship("Camera", back_populates="section", cascade="all, delete")
     
