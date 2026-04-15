@@ -13,6 +13,6 @@ class Vehicle(Base):
     plate_number = Column(String, unique=True, index=True, nullable=False)
     color = Column(String, nullable=True)
     type = Column(String, nullable=True)               # sedan, SUV, truck, etc.
+    
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-
     owner = relationship("User", backref="vehicles")

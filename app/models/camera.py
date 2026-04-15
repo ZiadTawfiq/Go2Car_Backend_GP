@@ -8,10 +8,10 @@ class Camera(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
+    location_description = Column(String, nullable=True)
 
     #  Link to Section
     section_id = Column(Integer, ForeignKey("parking_sections.id"), nullable=False)
-
     section = relationship("ParkingSection", back_populates="cameras")
 
     is_active = Column(Boolean, default=True)

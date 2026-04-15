@@ -4,7 +4,7 @@ ParkingSlot model — represents a physical parking space in the facility.
 from sqlalchemy import Boolean, Column, Integer, String, DateTime
 from sqlalchemy.sql import func
 from app.db.database import Base
-
+from sqlalchemy.orm import relationship
 
 class ParkingSlot(Base):
     __tablename__ = "parking_slots"
@@ -14,9 +14,10 @@ class ParkingSlot(Base):
 
     # Foreign Key → Section
     section_id = Column(Integer, ForeignKey("parking_sections.id"), nullable=False)
-
     # Relationship
     section = relationship("ParkingSection", back_populates="slots")
 
     is_occupied = Column(Boolean, default=False)
     last_updated = Column(DateTime(timezone=True), onupdate=func.now())
+
+    records = relationship("ParkingRecord", back_populates="slot")

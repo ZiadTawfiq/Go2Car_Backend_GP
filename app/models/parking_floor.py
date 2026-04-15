@@ -4,6 +4,7 @@ ParkingFloor model — represents a physical parking floor in the facility.
 from sqlalchemy import Boolean, Column, Integer, String, DateTime
 from sqlalchemy.sql import func
 from app.db.database import Base
+from sqlalchemy.orm import relationship
 
 
 class ParkingFloor(Base):
