@@ -1,9 +1,9 @@
 """
 User model — stores registered users and admins.
 """
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String , DateTime
 from app.db.database import Base
-
+from sqlalchemy.sql import func
 
 class User(Base):
     __tablename__ = "users"

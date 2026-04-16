@@ -1,7 +1,7 @@
 """
 ParkingRecord model — the core table that tracks every vehicle's parking session.
 """
-from sqlalchemy import Boolean, Column, Integer, String, DateTime
+from sqlalchemy import Boolean, Column, Integer, String, DateTime , ForeignKey
 from sqlalchemy.sql import func
 from app.db.database import Base
 from sqlalchemy.orm import relationship
