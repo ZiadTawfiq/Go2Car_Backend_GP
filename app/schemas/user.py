@@ -8,7 +8,7 @@ class UserRegister(BaseModel):
     """Request body for registration."""
     email: EmailStr
     password: str
-    is_admin: bool = False
+    
 
 
 class UserLogin(BaseModel):

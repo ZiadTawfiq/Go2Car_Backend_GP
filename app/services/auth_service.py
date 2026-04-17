@@ -23,7 +23,7 @@ def register_user(db: Session, data: UserRegister) -> User:
     user = User(
         email=data.email,
         password=hash_password(data.password),
-        is_admin=data.is_admin,
+        is_admin=False,
     )
     db.add(user)
     db.commit()
@@ -44,10 +44,3 @@ def login_user(db: Session, email: str, password: str) -> str:
         )
     return create_access_token({"sub": str(user.id), "is_admin": user.is_admin})
 
-
-def get_user_by_id(db: Session, user_id: int) -> User:
-    """Fetch a user by primary key or raise 404."""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-    return user

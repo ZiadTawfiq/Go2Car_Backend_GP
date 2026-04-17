@@ -26,7 +26,4 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     return {"access_token": token, "token_type": "bearer"}
 
 
-@router.get("/users/me", response_model=UserOut)
-def get_me(current_user: User = Depends(get_current_user)):
-    """Return the profile of the currently authenticated user."""
-    return current_user
+
