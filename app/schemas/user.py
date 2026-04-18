@@ -8,14 +8,12 @@ class UserRegister(BaseModel):
     """Request body for registration."""
     email: EmailStr
     password: str
-    
 
 
 class UserLogin(BaseModel):
     """Request body for login."""
     email: EmailStr
     password: str
-
 
 
 class UserOut(BaseModel):
@@ -26,6 +24,12 @@ class UserOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class UserUpdate(BaseModel):
+    email: EmailStr | None = None
+
+class ChangePassword(BaseModel):
+    old_password: str
+    new_password: str
 
 class Token(BaseModel):
     """JWT token response."""
