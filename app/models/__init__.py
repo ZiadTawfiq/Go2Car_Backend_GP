@@ -7,3 +7,4 @@ from app.models.parking_slot import ParkingSlot
 from app.models.camera import Camera
 from app.models.parking_record import ParkingRecord
 from app.models.detection_log import DetectionLog
+from app.models.blacklist_token import BlacklistedToken

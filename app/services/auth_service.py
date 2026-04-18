@@ -3,7 +3,7 @@ Authentication service — register, login, and current-user resolution.
 """
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-
+from app.models.blacklist_token import BlacklistedToken
 from app.models.user import User
 from app.schemas.user import UserRegister
 from app.core.security import hash_password, verify_password, create_access_token
@@ -35,6 +35,7 @@ def register_user(db: Session, data: UserRegister) -> User:
         verification_token=token,
         verification_token_expires_at=datetime.utcnow() + timedelta(minutes=30)
     )
+
 
     db.add(user)
     db.commit()
@@ -80,6 +81,9 @@ def verify_email(db: Session, token: str):
             detail="Invalid token"
         )
 
+    if user.is_verified:
+        return {"message": "Email already verified"}
+
     if user.verification_token_expires_at < datetime.utcnow():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -93,3 +97,13 @@ def verify_email(db: Session, token: str):
     db.commit()
 
     return {"message": "Email verified successfully"}
+
+
+
+def logout_user(db: Session, jti: str):
+    token = BlacklistedToken(jti=jti)
+
+    db.add(token)
+    db.commit()
+
+    return {"message": "Logged out successfully"}

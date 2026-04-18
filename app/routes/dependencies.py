@@ -6,12 +6,15 @@ Shared FastAPI dependencies:
 """
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+# from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer , HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
 from app.core.security import decode_access_token
 from app.models.user import User
+from app.models.blacklist_token import BlacklistedToken
+
 
 # ================= DB Dependency =================
 def get_db():
@@ -27,36 +30,48 @@ def get_db():
 
 
 # ================= Auth Dependency =================
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
+security = HTTPBearer()
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
-    """
-    Extract user from JWT token.
-    """
-
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired token.",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # decode token
+    token = credentials.credentials
+    # print(">>> TOKEN RECEIVED:", token) # will be removed 
+
+
+    payload = decode_access_token(token)
+    # print(">>> PAYLOAD:", payload) # will be removed 
+    if payload is None:
+        raise credentials_exception
+
+    # extract user_id
     try:
-        payload = decode_access_token(token)
-    except Exception:
+        user_id = int(payload.get("sub"))
+    except (TypeError, ValueError):
         raise credentials_exception
 
-    # get user_id from token
-    user_id = payload.get("sub")
-    if user_id is None or not str(user_id).isdigit():
+    # extract jti
+    jti = payload.get("jti")
+    if jti is None:
         raise credentials_exception
 
-    # get user from DB
-    user = db.get(User, int(user_id))
+    # check blacklist
+    blacklisted = db.query(BlacklistedToken).filter(BlacklistedToken.jti == jti).first()
+    if blacklisted:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked. Please login again.",
+        )
+
+    # fetch user
+    user = db.get(User, user_id)
     if user is None:
         raise credentials_exception
 
