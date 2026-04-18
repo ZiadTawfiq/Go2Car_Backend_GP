@@ -13,6 +13,9 @@ class User(Base):
     password = Column(String, nullable=False)          # bcrypt hashed
     
     is_admin = Column(Boolean, default=False)
+    
     is_verified = Column(Boolean, default=False)
+    verification_token = Column(String, nullable=True)
+    verification_token_expires_at = Column(DateTime, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

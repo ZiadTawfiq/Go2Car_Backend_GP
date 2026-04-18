@@ -8,6 +8,9 @@ from app.models.user import User
 from app.schemas.user import UserRegister
 from app.core.security import hash_password, verify_password, create_access_token
 
+import uuid
+from datetime import datetime, timedelta
+from fastapi import HTTPException, status
 
 def register_user(db: Session, data: UserRegister) -> User:
     """
@@ -20,14 +23,26 @@ def register_user(db: Session, data: UserRegister) -> User:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email is already registered.",
         )
+    
+    token = generate_verification_token()
+
+
     user = User(
         email=data.email,
         password=hash_password(data.password),
         is_admin=False,
+        is_verified=False,
+        verification_token=token,
+        verification_token_expires_at=datetime.utcnow() + timedelta(minutes=30)
     )
+
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # will replace with send_verification_email
+    print(f"http://localhost:8000/api/auth/verify-email?token={token}") 
+
     return user
 
 
@@ -42,5 +57,39 @@ def login_user(db: Session, email: str, password: str) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
         )
+    
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Please verify your email first"
+        )
+
     return create_access_token({"sub": str(user.id), "is_admin": user.is_admin})
 
+
+def generate_verification_token():
+    return str(uuid.uuid4())
+
+
+def verify_email(db: Session, token: str):
+    user = db.query(User).filter(User.verification_token == token).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid token"
+        )
+
+    if user.verification_token_expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token expired"
+        )
+
+    user.is_verified = True
+    user.verification_token = None
+    user.verification_token_expires_at = None
+
+    db.commit()
+
+    return {"message": "Email verified successfully"}

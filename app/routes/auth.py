@@ -26,4 +26,6 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     return {"access_token": token, "token_type": "bearer"}
 
 
-
+@router.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    return auth_service.verify_email(db, token)

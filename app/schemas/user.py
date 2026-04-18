@@ -17,6 +17,7 @@ class UserLogin(BaseModel):
     password: str
 
 
+
 class UserOut(BaseModel):
     """Response schema — never expose the password."""
     id: int
