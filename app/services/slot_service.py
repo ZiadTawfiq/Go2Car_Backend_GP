@@ -3,21 +3,25 @@ Slot service — query available and all parking slots.
 """
 from typing import List
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException, status
 
-from app.models.parking_slot import ParkingSlot
+from app.models import ParkingSlot, ParkingSection
 from app.schemas.parking_slot import ParkingSlotCreate
 
 
 def get_available_slots(db: Session) -> List[ParkingSlot]:
     """Return all slots that are currently free."""
-    return db.query(ParkingSlot).filter(ParkingSlot.is_occupied == False).all()
+    return db.query(ParkingSlot).filter(ParkingSlot.is_occupied == False).options(
+        joinedload(ParkingSlot.section).joinedload(ParkingSection.floor)
+    ).all()
 
 
 def get_all_slots(db: Session) -> List[ParkingSlot]:
     """Return every slot regardless of occupancy."""
-    return db.query(ParkingSlot).all()
+    return db.query(ParkingSlot).options(
+        joinedload(ParkingSlot.section).joinedload(ParkingSection.floor)
+    ).all()
 
 
 def create_slot(db: Session, data: ParkingSlotCreate) -> ParkingSlot:

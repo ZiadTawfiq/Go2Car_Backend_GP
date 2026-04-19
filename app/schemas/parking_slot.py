@@ -4,7 +4,7 @@ Pydantic schemas for ParkingSlot.
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel
-
+from app.schemas.parking_section import ParkingSectionOut
 
 class ParkingSlotCreate(BaseModel):
     """Used by admin to create a new slot."""
@@ -16,7 +16,7 @@ class ParkingSlotOut(BaseModel):
     """Response schema for a parking slot."""
     id: int
     slot_code: str
-    section_id: int
+    section : ParkingSectionOut
     is_occupied: bool
     last_updated: Optional[datetime]
 
