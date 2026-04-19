@@ -3,7 +3,7 @@ Parking slot routes — view available/all slots and create new slots (admin).
 """
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -24,6 +24,15 @@ def available_slots(db: Session = Depends(get_db)):
 def all_slots(db: Session = Depends(get_db)):
     """Return all parking slots (occupied + free)."""
     return slot_service.get_all_slots(db)
+
+
+@router.get("/{slot_id}", response_model=ParkingSlotOut)
+def get_slot(slot_id: int,db: Session = Depends(get_db)):
+    """Return one slot (occupied + free)."""
+    slot = slot_service.get_slot_by_id(db,slot_id)
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    return slot
 
 
 @router.post("/", response_model=ParkingSlotOut, status_code=201)

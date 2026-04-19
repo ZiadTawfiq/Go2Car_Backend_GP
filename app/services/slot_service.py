@@ -24,6 +24,12 @@ def get_all_slots(db: Session) -> List[ParkingSlot]:
     ).all()
 
 
+def get_slot_by_id(db: Session, slot_id: int):
+    return db.query(ParkingSlot).options(
+        joinedload(ParkingSlot.section).joinedload(ParkingSection.floor)
+    ).filter(ParkingSlot.id == slot_id).first()
+
+
 def create_slot(db: Session, data: ParkingSlotCreate) -> ParkingSlot:
     """
     Admin helper: create a new parking slot.
