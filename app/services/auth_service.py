@@ -30,6 +30,7 @@ def register_user(db: Session, data: UserRegister) -> User:
     user = User(
         email=data.email,
         password=hash_password(data.password),
+        name=data.name,
         is_admin=False,
         is_verified=False,
         verification_token=token,
@@ -47,7 +48,7 @@ def register_user(db: Session, data: UserRegister) -> User:
     return user
 
 
-def login_user(db: Session, email: str, password: str) -> str:
+def login_user(db: Session, email: str, password: str):
     """
     Verify credentials and return a JWT access token.
     Raises 401 on invalid credentials.
@@ -64,9 +65,9 @@ def login_user(db: Session, email: str, password: str) -> str:
             status_code=403,
             detail="Please verify your email first"
         )
+    token = create_access_token({"sub": str(user.id), "is_admin": user.is_admin})
 
-    return create_access_token({"sub": str(user.id), "is_admin": user.is_admin})
-
+    return user,token
 
 def generate_verification_token():
     return str(uuid.uuid4())
