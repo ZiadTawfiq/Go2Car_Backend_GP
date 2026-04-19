@@ -31,7 +31,7 @@ def create_slot(db: Session, data: ParkingSlotCreate) -> ParkingSlot:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Slot '{data.slot_code}' already exists.",
         )
-    slot = ParkingSlot(slot_code=data.slot_code, floor=data.floor)
+    slot = ParkingSlot(slot_code=data.slot_code, section_id=data.section_id)
     db.add(slot)
     db.commit()
     db.refresh(slot)

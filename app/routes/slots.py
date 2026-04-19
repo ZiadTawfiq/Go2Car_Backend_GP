@@ -30,7 +30,6 @@ def all_slots(db: Session = Depends(get_db)):
 def create_slot(
     data: ParkingSlotCreate,
     db: Session = Depends(get_db),
-    _admin=Depends(get_current_admin),  # admin only
 ):
     """Admin: add a new parking slot to the system."""
     return slot_service.create_slot(db, data)

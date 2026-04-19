@@ -9,14 +9,14 @@ from pydantic import BaseModel
 class ParkingSlotCreate(BaseModel):
     """Used by admin to create a new slot."""
     slot_code: str
-    floor: int
+    section_id: int
 
 
 class ParkingSlotOut(BaseModel):
     """Response schema for a parking slot."""
     id: int
     slot_code: str
-    floor: int
+    section_id: int
     is_occupied: bool
     last_updated: Optional[datetime]
 
