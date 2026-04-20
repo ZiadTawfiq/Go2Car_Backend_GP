@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.db.database import Base, engine
-from app.routes import auth, vehicles, slots, ai, admin , floor
+from app.routes import auth, vehicles, slots, ai, admin , floor,section
 
 # ── Logging setup ───────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -53,6 +53,7 @@ app.include_router(slots.router)
 app.include_router(ai.router)
 app.include_router(admin.router)
 app.include_router(floor.router)
+app.include_router(section.router)
 
 
 @app.get("/", tags=["Health"])
