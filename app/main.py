@@ -9,9 +9,17 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+
 from app.core.config import settings
 from app.db.database import Base, engine
-from app.routes import auth, vehicles, slots, ai, admin , floor,section
+from app.routes.auth import router as auth_router
+from app.routes.vehicles import router as vehicles_router
+from app.routes.slots import router as slots_router
+from app.routes.ai import router as ai_router
+from app.routes.admin import router as admin_router
+from app.routes.user import router as user_router
+from app.routes.floor import router as floor_router
+from app.routes.section import router as section_router
 
 # ── Logging setup ───────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -37,6 +45,8 @@ app = FastAPI(
     contact={"name": "Go2Car Team"},
 )
 
+
+
 # ── CORS (allow all origins for development) ────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
@@ -47,16 +57,16 @@ app.add_middleware(
 )
 
 # ── Register routers ────────────────────────────────────────────────────────
-app.include_router(auth.router)
-app.include_router(vehicles.router)
-app.include_router(slots.router)
-app.include_router(ai.router)
-app.include_router(admin.router)
-app.include_router(floor.router)
-app.include_router(section.router)
-
+app.include_router(auth_router)
+app.include_router(vehicles_router)
+app.include_router(slots_router)
+app.include_router(ai_router)
+app.include_router(admin_router)
+app.include_router(user_router)
+app.include_router(floor_router)
+app.include_router(section_router)
 
 @app.get("/", tags=["Health"])
 def root():
     """Health-check endpoint."""
-    return {"message": f"Welcome to {settings.APP_NAME} API 🚗", "status": "running"}
+    return {"message": f"Welcome to {settings.APP_NAME} API ", "status": "running"}

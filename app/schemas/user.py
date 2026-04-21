@@ -38,6 +38,12 @@ class LoginResponse(BaseModel):
 
 class UserUpdate(BaseModel):
     email: EmailStr | None = None
+    name : str| None = None
+
+class AdminUpdateUser(BaseModel):
+    email: EmailStr | None = None
+    name: str | None = None
+    is_admin: bool | None = None
 
 class ChangePassword(BaseModel):
     old_password: str
