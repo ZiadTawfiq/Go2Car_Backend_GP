@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.parking_slot import ParkingSlotOut, ParkingSlotCreate, SlotOccupancyOut
+from app.schemas.parking_slot import ParkingSlotOut, ParkingSlotCreate, SlotOccupancyOut, SlotStatusUpdate
 from app.services import slot_service
 from app.routes.dependencies import get_current_admin
 
@@ -47,4 +47,12 @@ def create_slot(
     """Admin: add a new parking slot to the system."""
     return slot_service.create_slot(db, data)
 
+
+@router.patch("/{slot_id}",response_model=ParkingSlotOut)
+def change_slot_status(
+    slot_id: int,
+    data: SlotStatusUpdate,
+    db: Session = Depends(get_db)
+):
+    return slot_service.update_slot_status(db, slot_id, data.is_occupied)
 

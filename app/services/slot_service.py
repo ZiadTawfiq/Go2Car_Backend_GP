@@ -67,3 +67,15 @@ def get_occupancy(db: Session):
         "occupied_slots": occupied,
         "occupancy_percentage": round(percentage, 2)
     }
+
+def update_slot_status(db: Session, slot_id: int, status: bool):
+    slot = db.query(ParkingSlot).filter(ParkingSlot.id == slot_id).first()
+    
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+
+    slot.is_occupied = status
+    db.commit()
+    db.refresh(slot)
+
+    return slot

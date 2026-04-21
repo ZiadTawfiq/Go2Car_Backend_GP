@@ -29,3 +29,7 @@ class SlotOccupancyOut(BaseModel):
     occupancy_percentage: float
 
     model_config = {"from_attributes": True}
+
+
+class SlotStatusUpdate(BaseModel):
+    is_occupied: bool
