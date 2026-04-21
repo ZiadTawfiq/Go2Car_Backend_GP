@@ -21,3 +21,11 @@ class ParkingSlotOut(BaseModel):
     last_updated: Optional[datetime]
 
     model_config = {"from_attributes": True}
+
+
+class SlotOccupancyOut(BaseModel):
+    total_slots: int
+    occupied_slots: int
+    occupancy_percentage: float
+
+    model_config = {"from_attributes": True}

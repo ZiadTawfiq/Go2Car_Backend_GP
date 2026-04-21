@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.parking_slot import ParkingSlotOut, ParkingSlotCreate
+from app.schemas.parking_slot import ParkingSlotOut, ParkingSlotCreate, SlotOccupancyOut
 from app.services import slot_service
 from app.routes.dependencies import get_current_admin
 
@@ -26,6 +26,10 @@ def all_slots(db: Session = Depends(get_db)):
     return slot_service.get_all_slots(db)
 
 
+@router.get("/occupancy", response_model=SlotOccupancyOut)
+def get_occupancy(db: Session = Depends(get_db)):
+    return slot_service.get_occupancy(db)
+
 @router.get("/{slot_id}", response_model=ParkingSlotOut)
 def get_slot(slot_id: int,db: Session = Depends(get_db)):
     """Return one slot (occupied + free)."""
@@ -42,3 +46,5 @@ def create_slot(
 ):
     """Admin: add a new parking slot to the system."""
     return slot_service.create_slot(db, data)
+
+

@@ -4,10 +4,11 @@ Slot service — query available and all parking slots.
 from typing import List
 
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from fastapi import HTTPException, status
 
 from app.models import ParkingSlot, ParkingSection
-from app.schemas.parking_slot import ParkingSlotCreate
+from app.schemas.parking_slot import ParkingSlotCreate,SlotOccupancyOut
 
 
 def get_available_slots(db: Session) -> List[ParkingSlot]:
@@ -46,3 +47,23 @@ def create_slot(db: Session, data: ParkingSlotCreate) -> ParkingSlot:
     db.commit()
     db.refresh(slot)
     return slot
+
+
+def get_occupancy(db: Session):
+    total = db.query(func.count(ParkingSlot.id)).scalar()
+
+    occupied = db.query(func.count(ParkingSlot.id))\
+        .filter(ParkingSlot.is_occupied == True)\
+        .scalar()
+
+    if total == 0:
+        percentage = 0
+    else:
+        percentage = (occupied / total) * 100
+
+
+    return {
+        "total_slots": total,
+        "occupied_slots": occupied,
+        "occupancy_percentage": round(percentage, 2)
+    }
