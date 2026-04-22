@@ -9,3 +9,10 @@ class CameraOut(BaseModel):
     section: ParkingSectionOut
 
     model_config = {"from_attributes": True}
+
+
+class CameraCreate(BaseModel):
+    name: str
+    location_description: str
+    section_id: int
+    is_active: bool = True

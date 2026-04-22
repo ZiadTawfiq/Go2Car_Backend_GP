@@ -26,3 +26,18 @@ def get_camera_by_id(db: Session, camera_id: int) -> Optional[CameraOut]:
     return db.query(Camera).options(
             joinedload(Camera.section).joinedload(ParkingSection.floor)
         ).filter(Camera.id == camera_id).first()
+
+
+def create_camera(db: Session, camera_data):
+    new_camera = Camera(
+        name=camera_data.name,
+        location_description=camera_data.location_description,
+        section_id=camera_data.section_id,
+        is_active=camera_data.is_active
+    )
+
+    db.add(new_camera)
+    db.commit()
+    db.refresh(new_camera)
+
+    return new_camera
