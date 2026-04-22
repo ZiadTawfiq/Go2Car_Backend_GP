@@ -23,3 +23,9 @@ class CameraUpdate(BaseModel):
     name: Optional[str] = None
     location_description: Optional[str] = None
     is_active: Optional[bool] = None
+
+
+class CameraStats(BaseModel):
+    total: int
+    active: int
+    inactive: int

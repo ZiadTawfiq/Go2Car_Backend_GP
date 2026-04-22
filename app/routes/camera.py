@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.schemas.camera import CameraOut, CameraCreate, CameraUpdate
+from app.schemas.camera import CameraOut, CameraCreate, CameraUpdate, CameraStats
 from app.services import camera_service
 
 router = APIRouter(prefix="/cameras", tags=["Cameras"])
@@ -15,6 +15,11 @@ def all_cameras(db: Session = Depends(get_db)):
 @router.get("/active", response_model=list[CameraOut])
 def active_cameras(db: Session = Depends(get_db)):
     return camera_service.get_active_cameras(db)
+
+
+@router.get("/stats", response_model=CameraStats)
+def camera_stats(db: Session = Depends(get_db)):
+    return camera_service.get_camera_stats(db)
 
 
 @router.get("/{camera_id}", response_model=CameraOut)

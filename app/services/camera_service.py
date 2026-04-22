@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from sqlalchemy.orm import Session, joinedload
-
+from sqlalchemy import func, case
 from app.models import Camera, ParkingSection
 from app.schemas.camera import CameraOut 
 
@@ -58,3 +58,18 @@ def update_camera(db: Session, camera_id: int, camera_data):
     db.refresh(camera)
 
     return camera
+
+
+
+def get_camera_stats(db: Session):
+    result = db.query(
+        func.count(Camera.id).label("total"),
+        func.sum(case((Camera.is_active == True, 1), else_=0)).label("active"),
+        func.sum(case((Camera.is_active == False, 1), else_=0)).label("inactive"),
+    ).one()
+
+    return {
+        "total": result.total or 0,
+        "active": result.active or 0,
+        "inactive": result.inactive or 0
+    }
