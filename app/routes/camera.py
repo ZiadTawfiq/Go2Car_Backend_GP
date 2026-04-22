@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.schemas.camera import CameraOut, CameraCreate
+from app.schemas.camera import CameraOut, CameraCreate, CameraUpdate
 from app.services import camera_service
 
 router = APIRouter(prefix="/cameras", tags=["Cameras"])
@@ -33,3 +33,18 @@ def create_camera_endpoint(
     db: Session = Depends(get_db)
 ):
     return camera_service.create_camera(db, camera)
+
+
+
+@router.patch("/{camera_id}", response_model=CameraOut)
+def update_camera_endpoint(
+    camera_id: int,
+    camera: CameraUpdate,
+    db: Session = Depends(get_db)
+):
+    updated_camera = camera_service.update_camera(db, camera_id, camera)
+
+    if not updated_camera:
+        raise HTTPException(status_code=404, detail="Camera not found")
+
+    return updated_camera

@@ -41,3 +41,20 @@ def create_camera(db: Session, camera_data):
     db.refresh(new_camera)
 
     return new_camera
+
+
+def update_camera(db: Session, camera_id: int, camera_data):
+    camera = db.query(Camera).filter(Camera.id == camera_id).first()
+
+    if not camera:
+        return None
+
+    update_data = camera_data.dict(exclude_unset=True)
+
+    for key, value in update_data.items():
+        setattr(camera, key, value)
+
+    db.commit()
+    db.refresh(camera)
+
+    return camera
