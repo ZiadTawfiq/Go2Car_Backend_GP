@@ -19,7 +19,8 @@ from app.routes.ai import router as ai_router
 from app.routes.admin import router as admin_router
 from app.routes.user import router as user_router
 from app.routes.floor import router as floor_router
-from app.routes.section import router as section_router
+from app.routes.section import router as section_router 
+from app.routes.camera import router as camera_router 
 
 # ── Logging setup ───────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -65,6 +66,7 @@ app.include_router(admin_router)
 app.include_router(user_router)
 app.include_router(floor_router)
 app.include_router(section_router)
+app.include_router(camera_router)
 
 @app.get("/", tags=["Health"])
 def root():
