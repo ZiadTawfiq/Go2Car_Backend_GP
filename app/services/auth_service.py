@@ -43,7 +43,7 @@ def register_user(db: Session, data: UserRegister) -> User:
     db.refresh(user)
 
     # will replace with send_verification_email
-    print(f"http://localhost:8000/api/auth/verify-email?token={token}") 
+    print(f"http://localhost:8000/auth/verify-email?token={token}") 
 
     return user
 
@@ -67,7 +67,13 @@ def login_user(db: Session, email: str, password: str):
         )
     token = create_access_token({"sub": str(user.id), "is_admin": user.is_admin})
 
-    return user,token
+    return {
+        "token": {
+            "access_token": token,
+            "token_type": "bearer"
+        },
+        "user": user
+    }
 
 def generate_verification_token():
     return str(uuid.uuid4())
@@ -82,22 +88,31 @@ def verify_email(db: Session, token: str):
             detail="Invalid token"
         )
 
-    if user.is_verified:
-        return {"message": "Email already verified"}
-
     if user.verification_token_expires_at < datetime.utcnow():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Token expired"
         )
 
-    user.is_verified = True
-    user.verification_token = None
-    user.verification_token_expires_at = None
+    if not user.is_verified:
+        user.is_verified = True
+        user.verification_token = None
+        user.verification_token_expires_at = None
+        db.commit()
+        db.refresh(user)
 
-    db.commit()
+    access_token = create_access_token({
+        "sub": str(user.id),
+        "is_admin": user.is_admin
+    })
 
-    return {"message": "Email verified successfully"}
+    return {
+        "token": {
+            "access_token": access_token,
+            "token_type": "bearer"
+        },
+        "user": user
+    }
 
 
 

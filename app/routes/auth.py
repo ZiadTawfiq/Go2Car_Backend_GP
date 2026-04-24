@@ -24,17 +24,10 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
 @router.post("/login", response_model=LoginResponse)
 def login(data: UserLogin, db: Session = Depends(get_db)):
     """Login with email and password — returns a JWT access token."""
-    user, token = auth_service.login_user(db, data.email, data.password)
-    return {
-        "token": {
-            "access_token": token,
-            "token_type": "bearer"
-        },
-        "user": user
-    }
+    return auth_service.login_user(db, data.email, data.password)
 
 
-@router.get("/verify-email")
+@router.get("/verify-email",response_model=LoginResponse)
 def verify_email(token: str, db: Session = Depends(get_db)):
     return auth_service.verify_email(db, token)
 
