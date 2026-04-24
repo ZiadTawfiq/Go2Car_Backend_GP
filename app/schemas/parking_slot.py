@@ -26,6 +26,7 @@ class ParkingSlotOut(BaseModel):
 class SlotOccupancyOut(BaseModel):
     total_slots: int
     occupied_slots: int
+    free_slots: int
     occupancy_percentage: float
 
     model_config = {"from_attributes": True}
