@@ -9,6 +9,8 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from dotenv import load_dotenv
+import os
 
 from app.core.config import settings
 from app.db.database import Base, engine
@@ -21,6 +23,10 @@ from app.routes.user import router as user_router
 from app.routes.floor import router as floor_router
 from app.routes.section import router as section_router 
 from app.routes.camera import router as camera_router 
+
+#load .env
+load_dotenv(os.path.join( ".env.example"))
+# print(os.getenv("SENDGRID_API_KEY"))
 
 # ── Logging setup ───────────────────────────────────────────────────────────
 logging.basicConfig(

@@ -12,6 +12,10 @@ import uuid
 from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 
+import os
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
 def register_user(db: Session, data: UserRegister) -> User:
     """
     Create a new user after checking that the email is not already taken.
@@ -44,6 +48,7 @@ def register_user(db: Session, data: UserRegister) -> User:
 
     # will replace with send_verification_email
     print(f"http://localhost:8000/auth/verify-email?token={token}") 
+    send_verification_email(data.email, token)
 
     return user
 
@@ -75,8 +80,55 @@ def login_user(db: Session, email: str, password: str):
         "user": user
     }
 
+
 def generate_verification_token():
     return str(uuid.uuid4())
+
+
+def send_verification_email(to_email: str, token: str):
+    verification_link = f"http://localhost:8000/auth/verify-email?token={token}"
+
+    message = Mail(
+        from_email='20220171@stud.fci-cu.edu.eg',
+        to_emails= to_email,
+        subject='Verify your Go2Car account',
+        html_content=f"""
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+            
+            <h2 style="color:#2c3e50;">🚗 Go2Car</h2>
+
+            <h3>Verify your account</h3>
+
+            <p>Welcome to <b>Go2Car</b> 👋</p>
+
+            <p>Please click the button below to verify your email:</p>
+
+            <a href="{verification_link}" 
+            style="
+                    display:inline-block;
+                    padding:10px 20px;
+                    background-color:#007bff;
+                    color:white;
+                    text-decoration:none;
+                    border-radius:5px;
+                    margin-top:10px;
+            ">
+            Verify Email
+            </a>
+
+            <p style="margin-top:20px; font-size:12px; color:gray;">
+                If you didn’t create this account, ignore this email.
+            </p>
+
+        </div>
+        """
+    )
+
+    try:
+        sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
+        sg.send(message)
+    except Exception as e:
+        print("Email error:", e)
 
 
 def verify_email(db: Session, token: str):
@@ -113,7 +165,6 @@ def verify_email(db: Session, token: str):
         },
         "user": user
     }
-
 
 
 def logout_user(db: Session, jti: str):
