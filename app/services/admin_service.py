@@ -3,16 +3,18 @@ Admin service — summary analytics for the parking facility.
 """
 from datetime import datetime, timedelta
 from http.client import HTTPException
+from typing import Optional
 
 from sqlalchemy.orm import Session
 from starlette import status
 
-from app.models import User
+from app.models import User, ParkingRecord
 from app.models.parking_slot import ParkingSlot
 from app.schemas.user import AdminUpdateUser, UserRegister
 from app.services.auth_service import generate_verification_token
 from app.services.user_service import get_user_by_id
 from app.core.security import hash_password
+from app.utils import normalize_plate
 
 
 def get_summary(db: Session) -> dict:
@@ -99,3 +101,4 @@ def admin_update_user(db: Session, user_id: int, data: AdminUpdateUser):
     db.refresh(user)
 
     return user
+

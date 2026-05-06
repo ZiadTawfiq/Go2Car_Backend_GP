@@ -71,3 +71,4 @@ def update_user(
     _: User = Depends(get_current_admin),
 ):
     return admin_update_user(db, user_id, data)
+

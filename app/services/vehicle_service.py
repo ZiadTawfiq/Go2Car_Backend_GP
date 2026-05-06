@@ -1,114 +1,358 @@
-"""
-Vehicle service — search by plate, search by attributes, and exit logic.
-"""
 from typing import List, Optional
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException, status
 
 from app.models.vehicle import Vehicle
 from app.models.parking_record import ParkingRecord
 from app.models.parking_slot import ParkingSlot
+from app.schemas.vehicle import VehicleCreate
+from app.utils import normalize_plate
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-def search_by_plate(db: Session, plate: str) -> dict:
-    """
-    Find the active parking record for a given plate number.
-    Returns slot_code and floor, or raises 404 if not found / not parked.
-    """
+# =========================================================
+# HELPERS
+# =========================================================
+def validate_plate(plate: str):
+
+    if not plate or plate.strip() == "":
+        raise HTTPException(400, "Plate number is required")
+
+
+# =========================================================
+# CREATE VEHICLE
+# =========================================================
+def create_vehicle(
+    db: Session,
+    data: VehicleCreate,
+    user_id: int
+):
+
+    plate = normalize_plate(data.plate_number)
+
+    validate_plate(plate)
+
+    existing = db.query(Vehicle).filter(
+        Vehicle.plate_number == plate
+    ).first()
+
+    if existing:
+        raise HTTPException(400, "Vehicle already exists")
+
+    vehicle = Vehicle(
+        plate_number=plate,
+        color=data.color,
+        vehicle_type=data.vehicle_type,
+        owner_id=user_id
+    )
+
+    try:
+
+        db.add(vehicle)
+        db.commit()
+        db.refresh(vehicle)
+
+        logger.info(f"Vehicle created: {plate}")
+
+        return {
+            "success": True,
+            "data": vehicle
+        }
+
+    except SQLAlchemyError as e:
+
+        db.rollback()
+
+        logger.error(f"Create vehicle failed: {str(e)}")
+
+        raise HTTPException(500, "Database error")
+
+
+# =========================================================
+# SEARCH BY PLATE (LOCATION)
+# =========================================================
+def search_by_plate(
+    db: Session,
+    plate: str
+) -> dict:
+
+    plate = normalize_plate(plate)
+
+    validate_plate(plate)
+
     record = (
         db.query(ParkingRecord)
+        .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
         .filter(
-            ParkingRecord.plate_number == plate.upper(),
+            Vehicle.plate_number == plate,
             ParkingRecord.is_active == True,
         )
         .first()
     )
+
     if not record:
+
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No active parking record found for plate '{plate}'.",
+            status_code=404,
+            detail=f"No active parking record for '{plate}'"
         )
-    return {"plate_number": record.plate_number, "slot_code": record.slot_code, "floor": record.floor}
+
+    return {
+        "success": True,
+        "data": {
+            "plate_number": record.vehicle.plate_number,
+            "slot": record.slot.slot_code,
+            "section": record.slot.section.section_name,
+            "floor": record.slot.section.floor.floor_name
+        }
+    }
 
 
-def search_by_attributes(db: Session, color: Optional[str], vehicle_type: Optional[str]) -> List[dict]:
-    """
-    Fallback search: find all currently parked vehicles matching color and/or type.
-    Returns a list of {plate_number, slot_code, floor}.
-    """
+# =========================================================
+# SEARCH BY ATTRIBUTES
+# =========================================================
+def search_by_attributes(
+    db: Session,
+    color: Optional[str],
+    vehicle_type: Optional[str]
+):
+
     if not color and not vehicle_type:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Provide at least one search attribute: color or type.",
-        )
+        raise HTTPException(400, "Provide color or vehicle_type")
 
-    query = db.query(Vehicle)
+    query = (
+        db.query(ParkingRecord)
+        .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
+        .filter(ParkingRecord.is_active == True)
+    )
+
     if color:
-        query = query.filter(Vehicle.color.ilike(f"%{color}%"))
+
+        query = query.filter(
+            Vehicle.color.ilike(f"%{color}%")
+        )
+
     if vehicle_type:
-        query = query.filter(Vehicle.type.ilike(f"%{vehicle_type}%"))
 
-    vehicles = query.all()
-    if not vehicles:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No vehicles found matching the given attributes.",
+        query = query.filter(
+            Vehicle.vehicle_type.ilike(f"%{vehicle_type}%")
         )
 
-    results = []
-    for v in vehicles:
-        record = (
-            db.query(ParkingRecord)
-            .filter(
-                ParkingRecord.plate_number == v.plate_number,
-                ParkingRecord.is_active == True,
-            )
-            .first()
+    records = query.all()
+
+    if not records:
+        raise HTTPException(404, "No vehicles found")
+
+    results = [
+        {
+            "plate_number": r.vehicle.plate_number,
+            "slot": r.slot.slot_code,
+            "section": r.slot.section.section_name,
+            "floor": r.slot.section.floor.floor_name,
+            "entry_time": r.entry_time,
+            "is_active": r.is_active
+        }
+        for r in records
+    ]
+
+    return {
+        "success": True,
+        "count": len(results),
+        "data": results
+    }
+
+
+# =========================================================
+# EXIT VEHICLE
+# =========================================================
+def exit_vehicle(
+    db: Session,
+    plate: str
+) -> dict:
+
+    plate = normalize_plate(plate)
+
+    validate_plate(plate)
+
+    record = (
+        db.query(ParkingRecord)
+        .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
+        .filter(
+            Vehicle.plate_number == plate,
+            ParkingRecord.is_active == True,
         )
-        if record:
-            results.append(
-                {"plate_number": v.plate_number, "slot_code": record.slot_code, "floor": record.floor}
-            )
+        .first()
+    )
+
+    if not record:
+        raise HTTPException(404, "No active parking session")
+
+    try:
+
+        record.is_active = False
+        record.exit_time = datetime.now(timezone.utc)
+
+        if record.slot:
+            record.slot.is_occupied = False
+
+        db.commit()
+
+        logger.info(f"Vehicle exited: {plate}")
+
+        return {
+            "success": True,
+            "message": f"Vehicle '{plate}' exited successfully"
+        }
+
+    except SQLAlchemyError as e:
+
+        db.rollback()
+
+        logger.error(f"Exit vehicle failed: {str(e)}")
+
+        raise HTTPException(500, "Database error")
+
+
+# =========================================================
+# FUZZY SEARCH
+# =========================================================
+def fuzzy_search(
+    db: Session,
+    plate: str
+):
+
+    plate = normalize_plate(plate)
+
+    results = (
+        db.query(Vehicle)
+        .filter(
+            Vehicle.plate_number.ilike(f"%{plate}%")
+        )
+        .all()
+    )
 
     if not results:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Vehicles found but none are currently parked.",
-        )
-    return results
+        raise HTTPException(404, "No matching vehicles")
+
+    return {
+        "success": True,
+        "data": [
+            v.plate_number for v in results
+        ]
+    }
 
 
-def exit_vehicle(db: Session, plate: str) -> dict:
-    """
-    Process a vehicle exit:
-      1. Find the active parking record.
-      2. Mark it as inactive and set exit_time.
-      3. Free the corresponding parking slot.
-    """
+# =========================================================
+# GET USER VEHICLES
+# =========================================================
+def get_user_vehicles(
+    db: Session,
+    user_id: int
+):
+
+    vehicles = db.query(Vehicle).filter(
+        Vehicle.owner_id == user_id
+    ).all()
+
+    return {
+        "success": True,
+        "count": len(vehicles),
+        "data": [
+            {
+                "plate_number": v.plate_number,
+                "color": v.color,
+                "vehicle_type": v.vehicle_type
+            }
+            for v in vehicles
+        ]
+    }
+
+
+# =========================================================
+# GET VEHICLE MAP
+# =========================================================
+def get_vehicle_map(
+    db: Session,
+    plate: str
+):
+
+    plate = normalize_plate(plate)
+
+    validate_plate(plate)
+
     record = (
         db.query(ParkingRecord)
+        .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
         .filter(
-            ParkingRecord.plate_number == plate.upper(),
-            ParkingRecord.is_active == True,
+            Vehicle.plate_number == plate,
+            ParkingRecord.is_active == True
         )
         .first()
     )
+
     if not record:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No active parking session found for plate '{plate}'.",
+        raise HTTPException(404, "Vehicle not found")
+
+    floor_code = record.slot.section.floor.floor_code
+
+    return {
+        "success": True,
+        "data": {
+            "map_path": f"/static/maps/{floor_code}.png",
+            "slot": record.slot.slot_code,
+            "section": record.slot.section.section_name,
+            "floor": record.slot.section.floor.floor_name
+        }
+    }
+
+
+# =========================================================
+# VEHICLE HISTORY
+# =========================================================
+def get_vehicle_history(
+    db: Session,
+    plate: Optional[str] = None
+):
+
+    query = (
+        db.query(ParkingRecord)
+        .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
+    )
+
+    if plate:
+
+        plate = normalize_plate(plate)
+
+        query = query.filter(
+            Vehicle.plate_number == plate
         )
 
-    # Update the record
-    record.is_active = False
-    record.exit_time = datetime.now(timezone.utc)
+    records = query.order_by(
+        ParkingRecord.entry_time.desc()
+    ).all()
 
-    # Free the slot
-    slot = db.query(ParkingSlot).filter(ParkingSlot.slot_code == record.slot_code).first()
-    if slot:
-        slot.is_occupied = False
+    if not records:
+        raise HTTPException(404, "No history found")
 
-    db.commit()
-    return {"message": f"Vehicle '{plate}' has exited. Slot '{record.slot_code}' is now free."}
+    return {
+        "success": True,
+        "count": len(records),
+        "data": [
+            {
+                "plate_number": r.vehicle.plate_number,
+                "slot": r.slot.slot_code,
+                "section": r.slot.section.section_name,
+                "floor": r.slot.section.floor.floor_name,
+                "entry_time": r.entry_time,
+                "exit_time": r.exit_time,
+                "is_active": r.is_active
+            }
+            for r in records
+        ]
+    }

@@ -1,48 +1,143 @@
-"""
-Vehicle routes — search by plate, search by attributes, vehicle exit.
-"""
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.db.database import get_db
-from app.schemas.vehicle import VehicleLocation
-from app.schemas.parking_record import VehicleExitRequest
-from app.services import vehicle_service
+from app.schemas.vehicle import VehicleCreate
+from app.services.vehicle_service import (
+    create_vehicle,
+    search_by_plate,
+    search_by_attributes,
+    exit_vehicle,
+    fuzzy_search,
+    get_user_vehicles,
+    get_vehicle_map,
+    get_vehicle_history
+)
 
-router = APIRouter(prefix="/vehicles", tags=["Vehicles"])
+router = APIRouter(
+    prefix="/vehicles",
+    tags=["Vehicles"]
+)
 
 
-@router.get("/search", response_model=VehicleLocation)
-def search_by_plate(
-    plate: str = Query(..., description="License plate number to search for"),
+# ---------------------------
+# CREATE VEHICLE
+# ---------------------------
+@router.post(
+    "/",
+    summary="Create vehicle",
+    description="Register a new vehicle"
+)
+def create(
+    data: VehicleCreate,
     db: Session = Depends(get_db),
+    user_id: int = 1
 ):
-    """
-    🔍 Primary search — find where a vehicle is currently parked by plate number.
-    Returns slot_code and floor number.
-    """
-    return vehicle_service.search_by_plate(db, plate)
+    return create_vehicle(db, data, user_id)
 
 
-@router.get("/search-by-attributes", response_model=List[VehicleLocation])
-def search_by_attributes(
-    color: Optional[str] = Query(None, description="Vehicle color (e.g. white, red)"),
-    type: Optional[str] = Query(None, description="Vehicle type (e.g. sedan, SUV)"),
+# ---------------------------
+# FUZZY SEARCH
+# ---------------------------
+@router.get(
+    "/search",
+    summary="Fuzzy search vehicle",
+    description="Search vehicle by partial plate number"
+)
+def search(
+    plate: str,
+    db: Session = Depends(get_db)
+):
+    return fuzzy_search(db, plate)
+
+
+# ---------------------------
+# SEARCH BY ATTRIBUTES
+# ---------------------------
+@router.get(
+    "/search/attributes",
+    summary="Search by attributes",
+    description="Search vehicles by color or vehicle type"
+)
+def search_attributes(
+    color: Optional[str] = Query(None),
+    vehicle_type: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    return search_by_attributes(db, color, vehicle_type)
+
+
+# ---------------------------
+# VEHICLE HISTORY
+# ---------------------------
+@router.get(
+    "/history",
+    summary="View vehicle history",
+    description="Admin endpoint to view parking history"
+)
+def history(
+    plate: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    return get_vehicle_history(db, plate)
+
+
+# ---------------------------
+# GET USER VEHICLES
+# ---------------------------
+@router.get(
+    "/user/me",
+    summary="Get my vehicles",
+    description="Get vehicles owned by current user"
+)
+def my_vehicles(
     db: Session = Depends(get_db),
+    user_id: int = 1
 ):
-    """
-    🔍 Fallback search — find parked vehicles by color and/or type.
-    Useful when the user doesn't know their exact plate number.
-    """
-    return vehicle_service.search_by_attributes(db, color, type)
+    return get_user_vehicles(db, user_id)
 
 
-@router.post("/exit")
-def exit_vehicle(data: VehicleExitRequest, db: Session = Depends(get_db)):
-    """
-    🚗 Process a vehicle exit:
-    closes the parking record, sets exit_time, and frees the slot.
-    """
-    return vehicle_service.exit_vehicle(db, data.plate)
+# ---------------------------
+# GET VEHICLE LOCATION
+# ---------------------------
+@router.get(
+    "/{plate}/location",
+    summary="Get vehicle location",
+    description="Get slot and floor for a vehicle"
+)
+def get_location(
+    plate: str,
+    db: Session = Depends(get_db)
+):
+    return search_by_plate(db, plate)
+
+
+# ---------------------------
+# GET VEHICLE MAP
+# ---------------------------
+@router.get(
+    "/{plate}/map",
+    summary="Get vehicle map",
+    description="Get map path for vehicle location"
+)
+def get_map(
+    plate: str,
+    db: Session = Depends(get_db)
+):
+    return get_vehicle_map(db, plate)
+
+
+# ---------------------------
+# EXIT VEHICLE
+# ---------------------------
+@router.post(
+    "/{plate}/exit",
+    summary="Exit vehicle",
+    description="Mark vehicle as exited and free parking slot"
+)
+def exit(
+    plate: str,
+    db: Session = Depends(get_db)
+):
+    return exit_vehicle(db, plate)
