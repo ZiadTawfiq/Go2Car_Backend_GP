@@ -11,14 +11,15 @@ from app.schemas.user import UserOut, UserRegister
 from app.services.admin_service import (
     get_all_users,
     create_admin_account,
-    admin_delete_user,
+    admin_delete_user, get_peak_hours, get_heatmap_data, get_analytics_history,
+    export_analytics_pdf,
 )
 from app.schemas.user import AdminUpdateUser
 from app.services.admin_service import admin_update_user
 from app.services import admin_service
 
 from app.routes.dependencies import get_current_admin
-
+from app.services.admin_service import get_analytics_summary
 
 router = APIRouter(
     prefix="/admin",
@@ -72,3 +73,52 @@ def update_user(
 ):
     return admin_update_user(db, user_id, data)
 
+@router.get(
+    "/analytics/summary",
+    summary="Analytics summary",
+    description="Get parking KPIs and occupancy statistics"
+)
+def analytics_summary(
+    db: Session = Depends(get_db)
+):
+    return get_analytics_summary(db)
+
+@router.get(
+    "/analytics/peak-hours",
+    summary="Peak hours analytics",
+    description="Get hourly parking activity statistics"
+)
+def peak_hours(
+    db: Session = Depends(get_db)
+):
+    return get_peak_hours(db)
+
+@router.get(
+    "/analytics/heatmap",
+    summary="Parking heatmap",
+    description="Per-slot parking usage analytics"
+)
+def heatmap(
+    db: Session = Depends(get_db)
+):
+    return get_heatmap_data(db)
+
+@router.get(
+    "/analytics/history",
+    summary="Parking history analytics",
+    description="Get historical parking activity timeline"
+)
+def analytics_history(
+    db: Session = Depends(get_db)
+):
+    return get_analytics_history(db)
+
+@router.get(
+    "/analytics/export/pdf",
+    summary="Export PDF report",
+    description="Export parking analytics as PDF"
+)
+def export_pdf(
+    db: Session = Depends(get_db)
+):
+    return export_analytics_pdf(db)

@@ -7,14 +7,30 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 from starlette import status
+from starlette.responses import FileResponse
 
-from app.models import User, ParkingRecord
+from app.models import User, ParkingRecord, Vehicle
 from app.models.parking_slot import ParkingSlot
 from app.schemas.user import AdminUpdateUser, UserRegister
 from app.services.auth_service import generate_verification_token
 from app.services.user_service import get_user_by_id
 from app.core.security import hash_password
 from app.utils import normalize_plate
+from sqlalchemy import extract, func
+from fastapi.responses import FileResponse
+
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer
+)
+
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import letter
+
 
 
 def get_summary(db: Session) -> dict:
@@ -102,3 +118,232 @@ def admin_update_user(db: Session, user_id: int, data: AdminUpdateUser):
 
     return user
 
+from sqlalchemy.orm import Session
+
+from app.models.parking_slot import ParkingSlot
+from app.models.parking_record import ParkingRecord
+
+
+def get_analytics_summary(db: Session):
+
+    total_slots = db.query(ParkingSlot).count()
+
+    occupied_slots = db.query(ParkingSlot).filter(
+        ParkingSlot.is_occupied == True
+    ).count()
+
+    free_slots = total_slots - occupied_slots
+
+    occupancy_percentage = 0
+
+    if total_slots > 0:
+        occupancy_percentage = round(
+            (occupied_slots / total_slots) * 100,
+            2
+        )
+
+    active_vehicles = db.query(ParkingRecord).filter(
+        ParkingRecord.is_active == True
+    ).count()
+
+    return {
+        "success": True,
+        "data": {
+            "total_slots": total_slots,
+            "occupied_slots": occupied_slots,
+            "free_slots": free_slots,
+            "occupancy_percentage": occupancy_percentage,
+            "active_vehicles": active_vehicles
+        }
+    }
+
+def get_peak_hours(db: Session):
+
+    results = (
+        db.query(
+            extract("hour", ParkingRecord.entry_time).label("hour"),
+            ParkingRecord.id
+        )
+        .all()
+    )
+
+    hourly_stats = {}
+
+    for hour, _ in results:
+
+        hour = int(hour)
+
+        if hour not in hourly_stats:
+            hourly_stats[hour] = 0
+
+        hourly_stats[hour] += 1
+
+    data = [
+        {
+            "hour": hour,
+            "entries": count
+        }
+        for hour, count in sorted(hourly_stats.items())
+    ]
+
+    return {
+        "success": True,
+        "data": data
+    }
+def get_heatmap_data(db: Session):
+
+    results = (
+        db.query(
+            ParkingSlot,
+            func.count(ParkingRecord.id).label("usage_count")
+        )
+        .join(
+            ParkingRecord,
+            ParkingRecord.slot_id == ParkingSlot.id
+        )
+        .group_by(ParkingSlot.id)
+        .order_by(
+            func.count(ParkingRecord.id).desc()
+        )
+        .all()
+    )
+
+    data = []
+
+    for slot, usage_count in results:
+
+        occupancy_rate = 0
+
+        if usage_count > 0:
+            occupancy_rate = min(
+                round((usage_count / 10) * 100, 2),
+                100
+            )
+
+        data.append({
+            "slot": slot.slot_code,
+            "section": slot.section.section_name,
+            "floor": slot.section.floor.floor_name,
+            "usage_count": usage_count,
+            "occupancy_rate": occupancy_rate
+        })
+
+    return {
+        "success": True,
+        "count": len(data),
+        "data": data
+    }
+
+def get_analytics_history(db: Session):
+
+    records = (
+        db.query(ParkingRecord)
+        .join(
+            Vehicle,
+            Vehicle.id == ParkingRecord.vehicle_id
+        )
+        .order_by(
+            ParkingRecord.entry_time.desc()
+        )
+        .all()
+    )
+
+    data = [
+        {
+            "plate_number": r.vehicle.plate_number,
+            "slot": r.slot.slot_code,
+            "section": r.slot.section.section_name,
+            "floor": r.slot.section.floor.floor_name,
+            "entry_time": r.entry_time,
+            "exit_time": r.exit_time,
+            "is_active": r.is_active
+        }
+        for r in records
+    ]
+
+    return {
+        "success": True,
+        "count": len(data),
+        "data": data
+    }
+def export_analytics_pdf(db: Session):
+
+    records = (
+        db.query(ParkingRecord)
+        .join(
+            Vehicle,
+            Vehicle.id == ParkingRecord.vehicle_id
+        )
+        .order_by(
+            ParkingRecord.entry_time.desc()
+        )
+        .all()
+    )
+
+    file_name = "parking_analytics_report.pdf"
+
+    doc = SimpleDocTemplate(
+        file_name,
+        pagesize=letter
+    )
+
+    elements = []
+
+    styles = getSampleStyleSheet()
+
+    title = Paragraph(
+        "Go2Car Parking Analytics Report",
+        styles["Title"]
+    )
+
+    elements.append(title)
+
+    elements.append(Spacer(1, 20))
+
+    data = [[
+        "Plate",
+        "Slot",
+        "Section",
+        "Floor",
+        "Entry",
+        "Exit",
+        "Active"
+    ]]
+
+    for r in records:
+
+        data.append([
+            r.vehicle.plate_number,
+            r.slot.slot_code,
+            r.slot.section.section_name,
+            r.slot.section.floor.floor_name,
+            str(r.entry_time),
+            str(r.exit_time),
+            str(r.is_active)
+        ])
+
+    table = Table(data)
+
+    table.setStyle(TableStyle([
+
+        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+
+    ]))
+
+    elements.append(table)
+
+    doc.build(elements)
+
+    return FileResponse(
+        path=file_name,
+        filename=file_name,
+        media_type="application/pdf"
+    )
