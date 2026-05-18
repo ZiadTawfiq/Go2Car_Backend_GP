@@ -19,6 +19,7 @@
   - [Floors](#floors)
   - [Sections](#sections)
   - [Cameras](#cameras)
+  - [Health](#health)
 - [Data Schemas](#data-schemas)
 - [Response Codes](#response-codes)
 
@@ -76,7 +77,7 @@ Register a new user account.
 }
 ```
 
-**Response `201`**
+**Response `201`** — [`UserOut`](#userout)
 
 ```json
 {
@@ -109,7 +110,7 @@ Login with email and password. Returns a JWT access token and user info.
 }
 ```
 
-**Response `200`**
+**Response `200`** — [`LoginResponse`](#loginresponse)
 
 ```json
 {
@@ -130,7 +131,7 @@ Login with email and password. Returns a JWT access token and user info.
 
 #### `GET /auth/verify-email`
 
-Verify a user's email using the token sent to their inbox. Typically triggered via a link in the verification email.
+Verify a user's email using the token sent to their inbox. Typically triggered via a link in the verification email. Returns a JWT token on success, allowing immediate login.
 
 **Query Parameters**
 
@@ -144,7 +145,7 @@ Verify a user's email using the token sent to their inbox. Typically triggered v
 GET /auth/verify-email?token=abc123verifytoken
 ```
 
-**Response `200`** — `{}`
+**Response `200`** — [`LoginResponse`](#loginresponse)
 
 ---
 
@@ -158,15 +159,47 @@ Logs out the currently authenticated user and invalidates the session.
 
 ### Vehicles
 
-#### `GET /vehicles/search`
+#### `POST /vehicles/`
 
-🔍 **Primary search** — find where a vehicle is currently parked by its license plate number.
+Register a new vehicle in the system.
 
 **Query Parameters**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `plate` | string | ✅ | License plate number to search for |
+| `user_id` | integer | ❌ | ID of the user to assign the vehicle to (default: `1`) |
+
+**Request Body**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `plate_number` | string | ✅ | Vehicle licence plate |
+| `color` | string \| null | ❌ | Vehicle color |
+| `vehicle_type` | string \| null | ❌ | e.g. `sedan`, `SUV`, `truck` |
+
+**Request Example**
+
+```json
+{
+  "plate_number": "ABC-1234",
+  "color": "white",
+  "vehicle_type": "sedan"
+}
+```
+
+**Response `200`** — `{}`
+
+---
+
+#### `GET /vehicles/search`
+
+🔍 **Primary search** — find a vehicle by partial plate number.
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `plate` | string | ✅ | Full or partial licence plate to search for |
 
 **Request Example**
 
@@ -174,71 +207,96 @@ Logs out the currently authenticated user and invalidates the session.
 GET /vehicles/search?plate=ABC-1234
 ```
 
-**Response `200`**
-
-```json
-{
-  "plate_number": "ABC-1234",
-  "slot_code": "A-12",
-  "floor": 2
-}
-```
+**Response `200`** — `{}`
 
 ---
 
-#### `GET /vehicles/search-by-attributes`
+#### `GET /vehicles/search/attributes`
 
-🔍 **Fallback search** — find parked vehicles by color and/or type. Useful when the user doesn't remember their exact plate number. Returns an array of matches.
+🔍 **Fallback search** — find parked vehicles by color and/or vehicle type. Useful when the user doesn't remember their exact plate number.
 
 **Query Parameters**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `color` | string \| null | ❌ | Vehicle color, e.g. `white`, `red` |
-| `type` | string \| null | ❌ | Vehicle type, e.g. `sedan`, `SUV` |
+| `vehicle_type` | string \| null | ❌ | Vehicle type, e.g. `sedan`, `SUV` |
 
 **Request Example**
 
 ```
-GET /vehicles/search-by-attributes?color=white&type=sedan
+GET /vehicles/search/attributes?color=white&vehicle_type=sedan
 ```
 
-**Response `200`**
-
-```json
-[
-  {
-    "plate_number": "ABC-1234",
-    "slot_code": "A-12",
-    "floor": 1
-  },
-  {
-    "plate_number": "XYZ-5678",
-    "slot_code": "B-05",
-    "floor": 2
-  }
-]
-```
+**Response `200`** — `{}`
 
 ---
 
-#### `POST /vehicles/exit`
+#### `GET /vehicles/history`
 
-🚗 Process a vehicle exit: closes the parking record, sets the `exit_time`, and frees the slot.
+View the full parking history of all vehicles. Optionally filter by plate number. Admin use.
 
-**Request Body**
+**Query Parameters**
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `plate` | string | ✅ | License plate of the exiting vehicle |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `plate` | string \| null | ❌ | Filter history to a specific plate |
 
-**Request Example**
+**Response `200`** — `{}`
 
-```json
-{
-  "plate": "ABC-1234"
-}
-```
+---
+
+#### `GET /vehicles/user/me`
+
+Get all vehicles registered to the current user.
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `user_id` | integer | ❌ | User ID (default: `1`) |
+
+**Response `200`** — `{}`
+
+---
+
+#### `GET /vehicles/{plate}/location`
+
+Get the slot and floor where a specific vehicle is currently parked.
+
+**Path Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `plate` | string | ✅ | Vehicle licence plate |
+
+**Response `200`** — `{}`
+
+---
+
+#### `GET /vehicles/{plate}/map`
+
+Get the map path to navigate to the vehicle's parking slot.
+
+**Path Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `plate` | string | ✅ | Vehicle licence plate |
+
+**Response `200`** — `{}`
+
+---
+
+#### `POST /vehicles/{plate}/exit`
+
+🚗 Mark a vehicle as exited and free up its parking slot.
+
+**Path Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `plate` | string | ✅ | Licence plate of the exiting vehicle |
 
 **Response `200`** — `{}`
 
@@ -250,7 +308,7 @@ GET /vehicles/search-by-attributes?color=white&type=sedan
 
 Return all currently free (unoccupied) parking slots.
 
-**Response `200`**
+**Response `200`** — array of [`ParkingSlotOut`](#parkingslotout)
 
 ```json
 [
@@ -283,6 +341,23 @@ Return all parking slots — both occupied and free.
 
 ---
 
+#### `GET /slots/occupancy`
+
+Returns real-time occupancy statistics for the entire parking facility.
+
+**Response `200`** — [`SlotOccupancyOut`](#slotoccupancyout)
+
+```json
+{
+  "total_slots": 120,
+  "occupied_slots": 87,
+  "free_slots": 33,
+  "occupancy_percentage": 72.5
+}
+```
+
+---
+
 #### `GET /slots/{slot_id}`
 
 Return a single parking slot by its ID.
@@ -294,22 +369,6 @@ Return a single parking slot by its ID.
 | `slot_id` | integer | ✅ | The unique slot ID |
 
 **Response `200`** — [`ParkingSlotOut`](#parkingslotout)
-
----
-
-#### `GET /slots/occupancy`
-
-Returns real-time occupancy statistics for the entire parking facility.
-
-**Response `200`**
-
-```json
-{
-  "total_slots": 120,
-  "occupied_slots": 87,
-  "occupancy_percentage": 72.5
-}
-```
 
 ---
 
@@ -367,48 +426,55 @@ Admin — add a new parking slot to the system.
 
 ### AI Integration
 
-> ⚠️ This endpoint is called **automatically** by the internal YOLO/OCR AI module when a vehicle is detected. The frontend team does **not** need to call this directly — it is documented here for full system understanding.
+> ⚠️ This endpoint is called **automatically** by the external AI vision service after processing a camera snapshot. The frontend team does **not** need to call this directly — it is documented here for full system understanding.
 
-#### `POST /ai/detect`
+#### `POST /ai/scan-result`
 
-📡 Called by the AI module when a vehicle is detected.
+📡 Called by the AI module after processing a camera frame.
 
 **Flow:**
-1. Create or update vehicle record
-2. Guard against duplicate active sessions
-3. Create parking record
-4. Mark slot as occupied
+- `has_car: false` → backend frees the slot
+- `has_car: true` → backend registers the vehicle and marks the slot as occupied
 
-**Request Body**
+**Request Body** — [`SlotScanResult`](#slotscanresult)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `plate` | string | ✅ | Detected license plate number |
-| `slot_code` | string | ✅ | Assigned slot code |
-| `floor` | integer | ✅ | Floor number where vehicle is parked |
-| `color` | string \| null | ❌ | Detected vehicle color |
-| `type` | string \| null | ❌ | Detected vehicle type, e.g. `sedan`, `SUV` |
+| `slot_code` | string | ✅ | Which slot was scanned |
+| `has_car` | boolean | ✅ | Whether a vehicle was detected |
+| `plate` | string \| null | ❌ | Detected plate (present when `has_car: true`) |
+| `color` | string \| null | ❌ | Detected color (present when `has_car: true`) |
+| `vehicle_type` | string \| null | ❌ | Detected vehicle type (present when `has_car: true`) |
 
-**Request Example**
+**Request Example — vehicle detected**
 
 ```json
 {
-  "plate": "ABC-1234",
   "slot_code": "A-12",
-  "floor": 2,
+  "has_car": true,
+  "plate": "ABC-1234",
   "color": "white",
-  "type": "sedan"
+  "vehicle_type": "sedan"
 }
 ```
 
-**Response `200`**
+**Request Example — slot empty**
+
+```json
+{
+  "slot_code": "A-12",
+  "has_car": false
+}
+```
+
+**Response `200`** — [`SlotScanResponse`](#slotscanresponse)
 
 ```json
 {
   "message": "Vehicle recorded successfully",
-  "plate": "ABC-1234",
   "slot_code": "A-12",
-  "floor": 2
+  "has_car": true,
+  "plate": "ABC-1234"
 }
 ```
 
@@ -430,7 +496,7 @@ Returns a high-level analytics summary of the parking system — occupancy rates
 
 Returns a list of all registered users.
 
-**Response `200`**
+**Response `200`** — array of [`UserOut`](#userout)
 
 ```json
 [
@@ -502,6 +568,46 @@ Permanently delete a user account.
 
 ---
 
+#### `GET /admin/analytics/summary`
+
+Get parking KPIs and occupancy statistics.
+
+**Response `200`** — `{}`
+
+---
+
+#### `GET /admin/analytics/peak-hours`
+
+Get hourly parking activity statistics to identify the busiest periods.
+
+**Response `200`** — `{}`
+
+---
+
+#### `GET /admin/analytics/heatmap`
+
+Per-slot usage analytics — useful for identifying consistently busy or underused areas.
+
+**Response `200`** — `{}`
+
+---
+
+#### `GET /admin/analytics/history`
+
+Get a historical timeline of parking activity.
+
+**Response `200`** — `{}`
+
+---
+
+#### `GET /admin/analytics/export/pdf`
+
+Export all parking analytics as a downloadable PDF report.
+
+**Response `200`** — `{}`
+
+---
+
 ### Users (Me)
 
 > All `/users/me` endpoints require a valid Bearer token.
@@ -510,7 +616,7 @@ Permanently delete a user account.
 
 Returns the authenticated user's profile.
 
-**Response `200`**
+**Response `200`** — [`UserOut`](#userout)
 
 ```json
 {
@@ -576,7 +682,7 @@ Change the authenticated user's password. Requires the current password for veri
 
 Returns all parking floors in the facility.
 
-**Response `200`**
+**Response `200`** — array of [`ParkingFloorOut`](#parkingfloorout)
 
 ```json
 [
@@ -607,7 +713,7 @@ Returns a single floor by its ID.
 
 Returns all parking sections across all floors.
 
-**Response `200`**
+**Response `200`** — array of [`ParkingSectionOut`](#parkingsectionout)
 
 ```json
 [
@@ -642,7 +748,7 @@ Returns a single section by its ID, including its floor details.
 
 Returns all cameras registered in the system.
 
-**Response `200`**
+**Response `200`** — array of [`CameraOut`](#cameraout)
 
 ```json
 [
@@ -675,7 +781,7 @@ Returns only cameras that are currently active (`is_active: true`).
 
 Returns a summary count of total, active, and inactive cameras.
 
-**Response `200`**
+**Response `200`** — [`CameraStats`](#camerastats)
 
 ```json
 {
@@ -760,6 +866,16 @@ Register a new camera in the system.
 
 ---
 
+### Health
+
+#### `GET /`
+
+Health check — verifies the API is reachable and running.
+
+**Response `200`** — `{}`
+
+---
+
 ## Data Schemas
 
 ### `UserOut`
@@ -773,13 +889,21 @@ Register a new camera in the system.
 
 ---
 
-### `VehicleLocation`
+### `LoginResponse`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `plate_number` | string | License plate number |
-| `slot_code` | string | Slot where the car is parked |
-| `floor` | integer | Floor number |
+| `token` | `Token` | JWT token object |
+| `user` | `UserOut` | Authenticated user info |
+
+---
+
+### `Token`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `access_token` | string | JWT access token |
+| `token_type` | string | Always `"bearer"` |
 
 ---
 
@@ -792,6 +916,48 @@ Register a new camera in the system.
 | `section` | `ParkingSectionOut` | Nested section details |
 | `is_occupied` | boolean | Whether the slot is currently occupied |
 | `last_updated` | datetime \| null | Last status change timestamp (ISO 8601) |
+
+---
+
+### `SlotOccupancyOut`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total_slots` | integer | Total number of slots in the system |
+| `occupied_slots` | integer | Number of currently occupied slots |
+| `free_slots` | integer | Number of currently free slots |
+| `occupancy_percentage` | number | Percentage of slots that are occupied |
+
+---
+
+### `SlotStatusUpdate`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `is_occupied` | boolean | ✅ | New occupancy status to apply to the slot |
+
+---
+
+### `SlotScanResult`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `slot_code` | string | ✅ | Which slot was scanned |
+| `has_car` | boolean | ✅ | Whether a vehicle was detected |
+| `plate` | string \| null | ❌ | Detected plate (when `has_car: true`) |
+| `color` | string \| null | ❌ | Detected color (when `has_car: true`) |
+| `vehicle_type` | string \| null | ❌ | Detected vehicle type (when `has_car: true`) |
+
+---
+
+### `SlotScanResponse`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | string | Confirmation message |
+| `slot_code` | string | Slot code that was processed |
+| `has_car` | boolean | Reflected from scan input |
+| `plate` | string \| null | Registered plate if applicable |
 
 ---
 
@@ -813,65 +979,6 @@ Register a new camera in the system.
 | `id` | integer | Floor ID |
 | `floor_code` | string | Floor identifier code |
 | `floor_name` | string | Human-readable floor name |
-
----
-
-### `Token`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `access_token` | string | JWT access token |
-| `token_type` | string | Always `"bearer"` |
-
----
-
-### `LoginResponse`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `token` | `Token` | JWT token object |
-| `user` | `UserOut` | Authenticated user info |
-
----
-
-### `AIDetectRequest`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `plate` | string | ✅ | Detected license plate number |
-| `slot_code` | string | ✅ | Assigned slot code |
-| `floor` | integer | ✅ | Floor number |
-| `color` | string \| null | ❌ | Detected vehicle color |
-| `type` | string \| null | ❌ | Detected vehicle type |
-
----
-
-### `AIDetectResponse`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `message` | string | Confirmation message |
-| `plate` | string | Plate number stored |
-| `slot_code` | string | Slot code stored |
-| `floor` | integer | Floor stored |
-
----
-
-### `SlotOccupancyOut`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `total_slots` | integer | Total number of slots in the system |
-| `occupied_slots` | integer | Number of currently occupied slots |
-| `occupancy_percentage` | number | Percentage of slots that are occupied |
-
----
-
-### `SlotStatusUpdate`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `is_occupied` | boolean | ✅ | New occupancy status to apply to the slot |
 
 ---
 
@@ -915,6 +1022,26 @@ Register a new camera in the system.
 | `total` | integer | Total number of cameras |
 | `active` | integer | Number of active cameras |
 | `inactive` | integer | Number of inactive cameras |
+
+---
+
+### `AdminUpdateUser`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string (email) \| null | ❌ | New email address |
+| `name` | string \| null | ❌ | New full name |
+| `is_admin` | boolean \| null | ❌ | Set or revoke admin privileges |
+
+---
+
+### `VehicleCreate`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `plate_number` | string | ✅ | Vehicle licence plate |
+| `color` | string \| null | ❌ | Vehicle color |
+| `vehicle_type` | string \| null | ❌ | e.g. `sedan`, `SUV`, `truck` |
 
 ---
 
