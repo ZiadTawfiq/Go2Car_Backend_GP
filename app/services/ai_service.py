@@ -1,90 +1,196 @@
 """
-AI service — handles the core detection flow:
+AI service — handles two flows:
+
+  A) park_vehicle      : direct park endpoint (POST /ai/park)
+                         called when caller already knows a car is present.
+  B) handle_slot_scan  : scan-result endpoint (POST /ai/scan-result)
+                         called by the external AI vision service after
+                         processing a camera snapshot.
+
+Shared pipeline when a car IS present:
   1. Save or retrieve the vehicle.
   2. Guard against duplicate active parking sessions.
-  3. Find or auto-create the parking slot.
-  4. Create the parking record.
-  5. Mark the slot as occupied.
+  3. Look up the parking slot (404 if not pre-configured — no ghost slots).
+  4. Guard against slot already occupied by another vehicle.
+  5. Create the parking record (vehicle_id FK + slot_id FK).
+  6. Mark the slot as occupied.
 """
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.models.vehicle import Vehicle
 from app.models.parking_slot import ParkingSlot
 from app.models.parking_record import ParkingRecord
-from app.schemas.ai import AIDetectRequest
+from app.schemas.ai import ParkVehicleRequest, SlotScanResult
 
 
-def process_detection(db: Session, data: AIDetectRequest) -> dict:
+# ── Shared internal helper ─────────────────────────────────────────────────────
+
+def _assign_vehicle_to_slot(
+    db: Session,
+    plate: str,
+    slot_code: str,
+    color: str | None,
+    vehicle_type: str | None,
+) -> dict:
     """
-    Full detection pipeline called by the AI module.
-    Idempotent: safe to call again if the vehicle is already parked.
+    Core pipeline: upsert vehicle → guard duplicates → link to slot → create record.
+    Returns a summary dict (not a Pydantic model — callers wrap it themselves).
     """
-    plate = data.plate.upper()
 
-    # ── 1. Upsert vehicle ──────────────────────────────────────────────────
+    # 1. Upsert vehicle ────────────────────────────────────────────────────────
     vehicle = db.query(Vehicle).filter(Vehicle.plate_number == plate).first()
     if not vehicle:
         vehicle = Vehicle(
             plate_number=plate,
-            color=data.color,
-            type=data.type,
+            color=color,
+            vehicle_type=vehicle_type,
         )
         db.add(vehicle)
-        db.flush()  # get ID without committing yet
+        db.flush()  # get vehicle.id before commit
     else:
-        # Update attributes if the AI provides richer info than what's stored
-        if data.color and not vehicle.color:
-            vehicle.color = data.color
-        if data.type and not vehicle.type:
-            vehicle.type = data.type
+        # Enrich existing record if new info is available
+        if color and not vehicle.color:
+            vehicle.color = color
+        if vehicle_type and not vehicle.vehicle_type:
+            vehicle.vehicle_type = vehicle_type
 
-    # ── 2. Check for existing active session ──────────────────────────────
+    # 2. Guard duplicate active session ────────────────────────────────────────
     active_record = (
         db.query(ParkingRecord)
-        .filter(ParkingRecord.plate_number == plate, ParkingRecord.is_active == True)
+        .filter(
+            ParkingRecord.vehicle_id == vehicle.id,
+            ParkingRecord.is_active == True,
+        )
         .first()
     )
     if active_record:
-        # Already parked — return current location (idempotent)
+        # Already parked — idempotent, return current location
         db.commit()
+        current_slot = db.query(ParkingSlot).filter(
+            ParkingSlot.id == active_record.slot_id
+        ).first()
         return {
             "message": "Vehicle is already parked.",
             "plate": plate,
-            "slot_code": active_record.slot_code,
-            "floor": active_record.floor,
+            "slot_code": current_slot.slot_code if current_slot else slot_code,
         }
 
-    # ── 3. Find or create the parking slot ────────────────────────────────
-    slot = db.query(ParkingSlot).filter(ParkingSlot.slot_code == data.slot_code).first()
+    # 3. Look up the slot — NO auto-creation ───────────────────────────────────
+    slot = db.query(ParkingSlot).filter(ParkingSlot.slot_code == slot_code).first()
     if not slot:
-        slot = ParkingSlot(slot_code=data.slot_code, floor=data.floor, is_occupied=False)
-        db.add(slot)
-        db.flush()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Slot '{slot_code}' does not exist. Pre-configure it via the admin API.",
+        )
 
+    # 4. Guard slot already taken by a different vehicle ───────────────────────
     if slot.is_occupied:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Slot '{data.slot_code}' is already occupied by another vehicle.",
+            detail=f"Slot '{slot_code}' is already occupied by another vehicle.",
         )
 
-    # ── 4. Create parking record ───────────────────────────────────────────
+    # 5. Create parking record (uses FKs, not raw strings) ─────────────────────
     record = ParkingRecord(
-        plate_number=plate,
-        slot_code=data.slot_code,
-        floor=data.floor,
+        vehicle_id=vehicle.id,
+        slot_id=slot.id,
         is_active=True,
     )
     db.add(record)
 
-    # ── 5. Mark slot as occupied ───────────────────────────────────────────
+    # 6. Mark slot occupied ────────────────────────────────────────────────────
     slot.is_occupied = True
 
     db.commit()
 
     return {
-        "message": "Vehicle detected and parked successfully.",
+        "message": "Vehicle parked successfully.",
         "plate": plate,
-        "slot_code": data.slot_code,
-        "floor": data.floor,
+        "slot_code": slot_code,
     }
+
+
+# ── Public service functions ───────────────────────────────────────────────────
+
+def park_vehicle(db: Session, data: ParkVehicleRequest) -> dict:
+    """
+    Called by POST /ai/park.
+    Used when the caller already has full vehicle data and wants to register it.
+    """
+    return _assign_vehicle_to_slot(
+        db=db,
+        plate=data.plate.upper(),
+        slot_code=data.slot_code,
+        color=data.color,
+        vehicle_type=data.vehicle_type,
+    )
+
+
+def handle_slot_scan(db: Session, data: SlotScanResult) -> dict:
+    """
+    Called by POST /ai/scan-result.
+    Handles both branches:
+      - has_car=False → free the slot and close the parking record.
+      - has_car=True  → assign the vehicle to the slot.
+    """
+
+    # ── Branch A: No car — free the slot ──────────────────────────────────
+    if not data.has_car:
+        slot = db.query(ParkingSlot).filter(
+            ParkingSlot.slot_code == data.slot_code
+        ).first()
+
+        if not slot:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Slot '{data.slot_code}' does not exist.",
+            )
+
+        if slot.is_occupied:
+            active_record = (
+                db.query(ParkingRecord)
+                .filter(
+                    ParkingRecord.slot_id == slot.id,
+                    ParkingRecord.is_active == True,
+                )
+                .first()
+            )
+            if active_record:
+                active_record.is_active = False
+                active_record.exit_time = datetime.now(timezone.utc)
+
+            slot.is_occupied = False
+            db.commit()
+            return {
+                "message": "Slot freed — vehicle has exited.",
+                "slot_code": data.slot_code,
+                "has_car": False,
+                "plate": None,
+            }
+
+        # Already free — no-op
+        return {
+            "message": "Slot already free. No change.",
+            "slot_code": data.slot_code,
+            "has_car": False,
+            "plate": None,
+        }
+
+    # ── Branch B: Car present — assign it to the slot ─────────────────────
+    if not data.plate:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="has_car is True but no plate number was provided.",
+        )
+
+    result = _assign_vehicle_to_slot(
+        db=db,
+        plate=data.plate.upper(),
+        slot_code=data.slot_code,
+        color=data.color,
+        vehicle_type=data.vehicle_type,
+    )
+
+    return {**result, "has_car": True}

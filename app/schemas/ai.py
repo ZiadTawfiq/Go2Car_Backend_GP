@@ -1,25 +1,49 @@
 """
-Pydantic schema for the AI detection endpoint.
+Pydantic schemas for the AI integration endpoints.
 """
 from typing import Optional
 from pydantic import BaseModel
 
 
-class AIDetectRequest(BaseModel):
+class ParkVehicleRequest(BaseModel):
     """
-    Payload sent by the AI module when it detects a vehicle.
-    The AI sends plate number, assigned slot, and optional vehicle attributes.
+    Payload to manually register a detected vehicle into a slot.
+    Sent when the caller already knows has_car=True and has the vehicle data.
     """
     plate: str
     slot_code: str
-    floor: int
     color: Optional[str] = None
-    type: Optional[str] = None
+    vehicle_type: Optional[str] = None
 
 
-class AIDetectResponse(BaseModel):
-    """Response confirming what the backend stored."""
+class ParkVehicleResponse(BaseModel):
+    """Response confirming the vehicle was stored and slot marked occupied."""
     message: str
     plate: str
     slot_code: str
-    floor: int
+
+
+# ── Scan result (sent by the external AI vision service) ──────────────────────
+
+class SlotScanResult(BaseModel):
+    """
+    Payload sent by the external AI vision service after processing a camera snapshot.
+
+    - has_car=False → backend frees the slot.
+    - has_car=True  → backend registers the vehicle and marks slot occupied.
+    """
+    slot_code: str
+    has_car: bool
+
+    # Only present when has_car is True
+    plate: Optional[str] = None
+    color: Optional[str] = None
+    vehicle_type: Optional[str] = None
+
+
+class SlotScanResponse(BaseModel):
+    """Response confirming what action the backend took after the scan."""
+    message: str
+    slot_code: str
+    has_car: bool
+    plate: Optional[str] = None
