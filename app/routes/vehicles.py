@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -14,6 +14,8 @@ from app.services.vehicle_service import (
     get_vehicle_map,
     get_vehicle_history
 )
+from app.routes.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter(
     prefix="/vehicles",
@@ -22,7 +24,7 @@ router = APIRouter(
 
 
 # ---------------------------
-# CREATE VEHICLE
+# CREATE VEHICLE  [JWT required]
 # ---------------------------
 @router.post(
     "/",
@@ -32,13 +34,13 @@ router = APIRouter(
 def create(
     data: VehicleCreate,
     db: Session = Depends(get_db),
-    user_id: int = 1
+    current_user: User = Depends(get_current_user)
 ):
-    return create_vehicle(db, data, user_id)
+    return create_vehicle(db, data, current_user.id)
 
 
 # ---------------------------
-# FUZZY SEARCH
+# FUZZY SEARCH  [public]
 # ---------------------------
 @router.get(
     "/search",
@@ -53,7 +55,7 @@ def search(
 
 
 # ---------------------------
-# SEARCH BY ATTRIBUTES
+# SEARCH BY ATTRIBUTES  [public]
 # ---------------------------
 @router.get(
     "/search/attributes",
@@ -69,22 +71,23 @@ def search_attributes(
 
 
 # ---------------------------
-# VEHICLE HISTORY
+# VEHICLE HISTORY  [JWT — own vehicles only]
 # ---------------------------
 @router.get(
     "/history",
     summary="View vehicle history",
-    description="Admin endpoint to view parking history"
+    description="Returns parking history for the current user's vehicles"
 )
 def history(
     plate: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    return get_vehicle_history(db, plate)
+    return get_vehicle_history(db, plate, current_user.id)
 
 
 # ---------------------------
-# GET USER VEHICLES
+# GET USER VEHICLES  [JWT required]
 # ---------------------------
 @router.get(
     "/user/me",
@@ -93,13 +96,13 @@ def history(
 )
 def my_vehicles(
     db: Session = Depends(get_db),
-    user_id: int = 1
+    current_user: User = Depends(get_current_user)
 ):
-    return get_user_vehicles(db, user_id)
+    return get_user_vehicles(db, current_user.id)
 
 
 # ---------------------------
-# GET VEHICLE LOCATION
+# GET VEHICLE LOCATION  [JWT required]
 # ---------------------------
 @router.get(
     "/{plate}/location",
@@ -108,13 +111,14 @@ def my_vehicles(
 )
 def get_location(
     plate: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     return search_by_plate(db, plate)
 
 
 # ---------------------------
-# GET VEHICLE MAP
+# GET VEHICLE MAP  [JWT required]
 # ---------------------------
 @router.get(
     "/{plate}/map",
@@ -123,13 +127,14 @@ def get_location(
 )
 def get_map(
     plate: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     return get_vehicle_map(db, plate)
 
 
 # ---------------------------
-# EXIT VEHICLE
+# EXIT VEHICLE  [JWT + admin only]
 # ---------------------------
 @router.post(
     "/{plate}/exit",
@@ -138,6 +143,12 @@ def get_map(
 )
 def exit(
     plate: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
     return exit_vehicle(db, plate)
