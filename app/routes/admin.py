@@ -1,5 +1,5 @@
 """
-Admin routes — protected summary endpoint.
+Admin routes — all endpoints require JWT + is_admin.
 """
 from typing import List
 from fastapi import APIRouter, Depends
@@ -11,13 +11,15 @@ from app.schemas.user import UserOut, UserRegister
 from app.services.admin_service import (
     get_all_users,
     create_admin_account,
-    admin_delete_user, get_peak_hours, get_heatmap_data, get_analytics_history,
+    admin_delete_user,
+    get_peak_hours,
+    get_heatmap_data,
+    get_analytics_history,
     export_analytics_pdf,
 )
 from app.schemas.user import AdminUpdateUser
 from app.services.admin_service import admin_update_user
 from app.services import admin_service
-
 from app.routes.dependencies import get_current_admin
 from app.services.admin_service import get_analytics_summary
 
@@ -28,13 +30,13 @@ router = APIRouter(
 
 
 # =========================
-#  ADMIN ROUTES
+#  USER MANAGEMENT
 # =========================
 
 @router.get("/summary")
 def get_summary(
     db: Session = Depends(get_db),
-    _current_admin: User = Depends(get_current_admin),
+    _: User = Depends(get_current_admin),
 ):
     return admin_service.get_summary(db)
 
@@ -42,7 +44,7 @@ def get_summary(
 @router.get("/users", response_model=List[UserOut])
 def get_users(
     db: Session = Depends(get_db),
-    _current_admin: User = Depends(get_current_admin),
+    _: User = Depends(get_current_admin),
 ):
     return get_all_users(db)
 
@@ -64,6 +66,7 @@ def delete_user(
 ):
     return admin_delete_user(db, current_admin, user_id)
 
+
 @router.put("/users/{user_id}", response_model=UserOut)
 def update_user(
     user_id: int,
@@ -73,15 +76,22 @@ def update_user(
 ):
     return admin_update_user(db, user_id, data)
 
+
+# =========================
+#  ANALYTICS
+# =========================
+
 @router.get(
     "/analytics/summary",
     summary="Analytics summary",
     description="Get parking KPIs and occupancy statistics"
 )
 def analytics_summary(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
 ):
     return get_analytics_summary(db)
+
 
 @router.get(
     "/analytics/peak-hours",
@@ -89,9 +99,11 @@ def analytics_summary(
     description="Get hourly parking activity statistics"
 )
 def peak_hours(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
 ):
     return get_peak_hours(db)
+
 
 @router.get(
     "/analytics/heatmap",
@@ -99,9 +111,11 @@ def peak_hours(
     description="Per-slot parking usage analytics"
 )
 def heatmap(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
 ):
     return get_heatmap_data(db)
+
 
 @router.get(
     "/analytics/history",
@@ -109,9 +123,11 @@ def heatmap(
     description="Get historical parking activity timeline"
 )
 def analytics_history(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
 ):
     return get_analytics_history(db)
+
 
 @router.get(
     "/analytics/export/pdf",
@@ -119,6 +135,7 @@ def analytics_history(
     description="Export parking analytics as PDF"
 )
 def export_pdf(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
 ):
     return export_analytics_pdf(db)
