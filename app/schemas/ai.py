@@ -26,19 +26,39 @@ class ParkVehicleResponse(BaseModel):
 # ── Scan result (sent by the external AI vision service) ──────────────────────
 
 class SlotScanResult(BaseModel):
-    """
-    Payload sent by the external AI vision service after processing a camera snapshot.
+    # AI field names → backend maps them internally
+    event_type: str                        # "arrival" or "departure"
+    camera_id: Optional[str] = None
+    slot_id: str                           # this is your slot_code
+    section: Optional[str] = None
 
-    - has_car=False → backend frees the slot.
-    - has_car=True  → backend registers the vehicle and marks slot occupied.
-    """
-    slot_code: str
-    has_car: bool
-
-    # Only present when has_car is True
-    plate: Optional[str] = None
+    # Arrival fields
+    plate_text: Optional[str] = None      # maps to → plate
+    plate_confidence: Optional[float] = None
     color: Optional[str] = None
-    vehicle_type: Optional[str] = None
+    color_confidence: Optional[float] = None
+    car_type: Optional[str] = None        # maps to → vehicle_type
+    car_type_confidence: Optional[float] = None
+
+    # Departure fields
+    duration_minutes: Optional[float] = None
+
+    # Computed properties for internal use
+    @property
+    def slot_code(self) -> str:
+        return self.slot_id
+
+    @property
+    def has_car(self) -> bool:
+        return self.event_type == "arrival"
+
+    @property
+    def plate(self) -> Optional[str]:
+        return self.plate_text
+
+    @property
+    def vehicle_type(self) -> Optional[str]:
+        return self.car_type
 
 
 class SlotScanResponse(BaseModel):
