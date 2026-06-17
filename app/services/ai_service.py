@@ -179,15 +179,13 @@ def handle_slot_scan(db: Session, data: SlotScanResult) -> dict:
         }
 
     # ── Branch B: Car present — assign it to the slot ─────────────────────
-    if not data.plate:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="has_car is True but no plate number was provided.",
-        )
+    # If plate is missing (OCR failed), generate a placeholder so the slot
+    # still gets registered. The admin can correct it later via the dashboard.
+    plate = data.plate if data.plate and data.plate.strip() else f"UNKNOWN-{data.slot_code}"
 
     result = _assign_vehicle_to_slot(
         db=db,
-        plate=data.plate.upper(),
+        plate=plate.upper(),
         slot_code=data.slot_code,
         color=data.color,
         vehicle_type=data.vehicle_type,
