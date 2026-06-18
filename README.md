@@ -125,7 +125,7 @@ app/
 ### 1. Clone & enter the project
 
 ```bash
-git clone https://github.com/<your-org>/Go2Car_Backend_GP.git
+git clone https://github.com/ZiadTawfiq/Go2Car_Backend_GP.git
 cd Go2Car_Backend_GP
 ```
 
