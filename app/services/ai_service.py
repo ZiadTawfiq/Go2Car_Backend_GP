@@ -36,10 +36,17 @@ def _assign_vehicle_to_slot(
 ) -> dict:
     """
     Core pipeline: upsert vehicle → guard duplicates → link to slot → create record.
-    Returns a summary dict (not a Pydantic model — callers wrap it themselves).
+    Supports updating the plate text for occupied slots (LPR refinement).
     """
+    # 1. Look up the slot first
+    slot = db.query(ParkingSlot).filter(ParkingSlot.slot_code == slot_code).first()
+    if not slot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Slot '{slot_code}' does not exist. Pre-configure it via the admin API.",
+        )
 
-    # 1. Upsert vehicle ────────────────────────────────────────────────────────
+    # 2. Look up or create vehicle
     vehicle = db.query(Vehicle).filter(Vehicle.plate_number == plate).first()
     if not vehicle:
         vehicle = Vehicle(
@@ -48,7 +55,7 @@ def _assign_vehicle_to_slot(
             vehicle_type=vehicle_type,
         )
         db.add(vehicle)
-        db.flush()  # get vehicle.id before commit
+        db.flush()
     else:
         # Enrich existing record if new info is available
         if color and not vehicle.color:
@@ -56,7 +63,38 @@ def _assign_vehicle_to_slot(
         if vehicle_type and not vehicle.vehicle_type:
             vehicle.vehicle_type = vehicle_type
 
-    # 2. Guard duplicate active session ────────────────────────────────────────
+    # 3. If slot is occupied, handle potential update/refinement of the plate
+    if slot.is_occupied:
+        active_record = (
+            db.query(ParkingRecord)
+            .filter(
+                ParkingRecord.slot_id == slot.id,
+                ParkingRecord.is_active == True,
+            )
+            .first()
+        )
+        if active_record:
+            current_vehicle = db.query(Vehicle).filter(Vehicle.id == active_record.vehicle_id).first()
+            if current_vehicle:
+                if current_vehicle.plate_number != plate:
+                    # Update the active record's vehicle to the refined one
+                    active_record.vehicle_id = vehicle.id
+                    db.commit()
+                    return {
+                        "message": f"Updated slot '{slot_code}' vehicle plate from '{current_vehicle.plate_number}' to '{plate}'.",
+                        "plate": plate,
+                        "slot_code": slot_code,
+                    }
+                else:
+                    # Same plate, idempotent
+                    db.commit()
+                    return {
+                        "message": "Vehicle is already parked.",
+                        "plate": plate,
+                        "slot_code": slot_code,
+                    }
+
+    # 4. Guard duplicate active session (if vehicle is already parked in ANOTHER slot)
     active_record = (
         db.query(ParkingRecord)
         .filter(
@@ -66,7 +104,6 @@ def _assign_vehicle_to_slot(
         .first()
     )
     if active_record:
-        # Already parked — idempotent, return current location
         db.commit()
         current_slot = db.query(ParkingSlot).filter(
             ParkingSlot.id == active_record.slot_id
@@ -77,22 +114,7 @@ def _assign_vehicle_to_slot(
             "slot_code": current_slot.slot_code if current_slot else slot_code,
         }
 
-    # 3. Look up the slot — NO auto-creation ───────────────────────────────────
-    slot = db.query(ParkingSlot).filter(ParkingSlot.slot_code == slot_code).first()
-    if not slot:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Slot '{slot_code}' does not exist. Pre-configure it via the admin API.",
-        )
-
-    # 4. Guard slot already taken by a different vehicle ───────────────────────
-    if slot.is_occupied:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Slot '{slot_code}' is already occupied by another vehicle.",
-        )
-
-    # 5. Create parking record (uses FKs, not raw strings) ─────────────────────
+    # 5. Create parking record
     record = ParkingRecord(
         vehicle_id=vehicle.id,
         slot_id=slot.id,
@@ -100,9 +122,8 @@ def _assign_vehicle_to_slot(
     )
     db.add(record)
 
-    # 6. Mark slot occupied ────────────────────────────────────────────────────
+    # 6. Mark slot occupied
     slot.is_occupied = True
-
     db.commit()
 
     return {
