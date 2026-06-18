@@ -1,228 +1,339 @@
-# 🚗 Go2Car — AI Smart Parking System — Backend API
+# 🚗 Go2Car — AI-Powered Smart Parking System
 
-A clean, production-ready FastAPI backend for the Go2Car graduation project.
-The system supports AI-powered vehicle detection, parking slot management, and mobile-app car search.
+A production-grade REST API backend for an AI-powered smart parking facility. Built as a graduation project, Go2Car bridges computer-vision vehicle detection with a mobile app, enabling users to locate their parked car in seconds.
+
+The system receives real-time scan results from an external AI vision service (license plate recognition, color & type classification), automatically manages parking slot occupancy, and exposes search endpoints for the companion mobile app.
 
 ---
 
-## 🏗️ Project Structure
+## ✨ Key Features
+
+| Category | Details |
+|----------|---------|
+| **AI Vision Integration** | Receives scan results from cameras, auto-registers vehicles on arrival and frees slots on departure |
+| **Vehicle Search** | Fuzzy plate search + attribute-based search (color, type) for when users forget their plate |
+| **Multi-Level Parking Model** | Hierarchical Floor → Section → Slot structure with camera-to-section mapping |
+| **Admin Analytics** | Occupancy summary, peak-hour analysis, per-slot usage heatmap, historical timeline, and PDF report export |
+| **Auth & Security** | JWT with token blacklisting (secure logout), bcrypt password hashing, email verification via SendGrid |
+| **Role-Based Access** | Public, authenticated, and admin-only endpoint tiers |
+| **Vehicle Ownership** | Users register vehicles and view parking history for their own cars |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Framework | **FastAPI** 0.135 + **Uvicorn** |
+| Database | **SQLAlchemy** 2.0 ORM — SQLite (default) / PostgreSQL |
+| Auth | **python-jose** (JWT HS256) + **Passlib** (bcrypt) |
+| Validation | **Pydantic** 2 + **pydantic-settings** |
+| Email | **SendGrid** SDK |
+| PDF Export | **ReportLab** |
+| Language | Python 3.10+ |
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    CAM["📷 AI Vision\nService"] -- "POST /ai/scan-result\n(arrival / departure)" --> API
+    APP["📱 Mobile\nApp"] -- "Search · History\nRegister · Auth" --> API
+    DASH["🖥️ Admin\nDashboard"] -- "Analytics · Users\nCameras · Slots" --> API
+
+    subgraph API["FastAPI Backend"]
+        direction TB
+        R[Routes] --> S[Services]
+        S --> M[Models / ORM]
+        M --> DB[(SQLite / PostgreSQL)]
+    end
+```
+
+### System Flow
+
+```mermaid
+sequenceDiagram
+    participant AI as AI Vision Service
+    participant API as FastAPI Backend
+    participant DB as Database
+    participant App as Mobile App
+
+    Note over AI,API: Vehicle Arrives
+    AI->>API: POST /ai/scan-result (event_type: arrival)
+    API->>DB: Upsert vehicle + create ParkingRecord
+    API->>DB: Mark slot occupied
+
+    Note over App,API: User Searches
+    App->>API: GET /vehicles/search?plate=ABC123
+    API->>DB: Fuzzy match plate
+    API-->>App: slot, section, floor
+
+    Note over AI,API: Vehicle Departs
+    AI->>API: POST /ai/scan-result (event_type: departure)
+    API->>DB: Close ParkingRecord + free slot
+```
+
+---
+
+## 📁 Project Structure
 
 ```
 app/
-├── main.py              ← FastAPI entry point
+├── main.py                  # FastAPI entry point, router registration
 ├── core/
-│   ├── config.py        ← Settings (reads .env)
-│   └── security.py      ← JWT + password hashing
+│   ├── config.py            # Pydantic-settings (reads .env)
+│   └── security.py          # JWT creation/decode, bcrypt hashing
 ├── db/
-│   └── database.py      ← SQLAlchemy engine + session
-├── models/
-│   ├── user.py
-│   ├── vehicle.py
-│   ├── parking_slot.py
-│   └── parking_record.py
-├── schemas/
-│   ├── user.py
-│   ├── vehicle.py
-│   ├── parking_slot.py
-│   ├── parking_record.py
-│   └── ai.py
-├── services/
-│   ├── auth_service.py
-│   ├── vehicle_service.py
-│   ├── slot_service.py
-│   ├── ai_service.py
-│   └── admin_service.py
-└── routes/
-    ├── dependencies.py  ← JWT auth guards
-    ├── auth.py
-    ├── vehicles.py
-    ├── slots.py
-    ├── ai.py
-    └── admin.py
+│   └── database.py          # SQLAlchemy engine + session factory
+├── models/                  # ORM models
+│   ├── user.py              # User (with email verification fields)
+│   ├── vehicle.py           # Vehicle (plate, color, type, owner FK)
+│   ├── parking_floor.py     # Floor → has many Sections
+│   ├── parking_section.py   # Section → has many Slots & Cameras
+│   ├── parking_slot.py      # Slot (occupied flag, section FK)
+│   ├── parking_record.py    # Parking session (entry/exit times)
+│   ├── camera.py            # Camera (active flag, section FK)
+│   ├── detection_log.py     # Raw AI detection log
+│   └── blacklist_token.py   # Revoked JWT tokens
+├── schemas/                 # Pydantic request/response models
+├── services/                # Business logic layer
+│   ├── ai_service.py        # Arrival/departure pipeline
+│   ├── vehicle_service.py   # Search, exit, history, map
+│   ├── auth_service.py      # Register, login, email verification
+│   ├── admin_service.py     # Analytics, user CRUD, PDF export
+│   ├── slot_service.py      # Slot CRUD + occupancy stats
+│   ├── camera_service.py    # Camera management
+│   ├── floor_service.py     # Floor queries
+│   ├── section_service.py   # Section queries
+│   └── user_service.py      # Profile update, password change
+└── routes/                  # API routers
+    ├── dependencies.py      # JWT guard + admin guard
+    ├── auth.py, user.py, vehicles.py, slots.py
+    ├── ai.py, admin.py, floor.py, section.py, camera.py
 ```
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Getting Started
+
+### Prerequisites
+
+- Python 3.10+
+- pip
 
 ### 1. Clone & enter the project
+
 ```bash
+git clone https://github.com/ZiadTawfiq/Go2Car_Backend_GP.git
 cd Go2Car_Backend_GP
 ```
 
 ### 2. Create a virtual environment
+
 ```bash
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # Mac/Linux
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS / Linux
 ```
 
 ### 3. Install dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure environment
+### 4. Configure environment variables
+
 ```bash
-copy .env.example .env      # Windows
-# cp .env.example .env      # Mac/Linux
+copy .env.example .env         # Windows
+# cp .env.example .env         # macOS / Linux
 ```
-Edit `.env` if needed (default uses SQLite — no setup required).
+
+Edit `.env` to set your own `SECRET_KEY`, `SENDGRID_API_KEY`, and optionally switch to PostgreSQL.
 
 ### 5. Run the server
+
 ```bash
 uvicorn app.main:app --reload
 ```
 
-### 6. Open the interactive docs
-- Swagger UI → http://127.0.0.1:8000/docs
-- ReDoc      → http://127.0.0.1:8000/redoc
+The database file (`go2car.db`) is created automatically on first run — no manual migration needed.
+
+### 6. Explore the API docs
+
+| Interface | URL |
+|-----------|-----|
+| Swagger UI | http://127.0.0.1:8000/docs |
+| ReDoc | http://127.0.0.1:8000/redoc |
 
 ---
 
-## 📡 API Reference
+## 📡 API Endpoints
 
-### 🔐 Authentication
+### Authentication
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/auth/register` | Register a new user |
-| POST | `/auth/login` | Login → get JWT token |
-| GET | `/auth/users/me` | Get current user profile |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/register` | — | Register a new user (sends verification email) |
+| POST | `/auth/login` | — | Login → returns JWT + user profile |
+| GET | `/auth/verify-email?token=` | — | Verify email address |
+| POST | `/auth/logout` | JWT | Revoke current token |
 
-### 🚗 Vehicles
+### Users
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/vehicles/search?plate=ABC123` | **Find car by plate** |
-| GET | `/vehicles/search-by-attributes?color=white&type=sedan` | Fallback search |
-| POST | `/vehicles/exit` | Process vehicle exit |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/users/me` | JWT | Get current user profile |
+| PUT | `/users/me` | JWT | Update profile |
+| PUT | `/users/me/password` | JWT | Change password |
+| DELETE | `/users/me` | JWT | Delete own account |
 
-### 🅿️ Parking Slots
+### Vehicles
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/slots/available` | List free slots |
-| GET | `/slots/all` | List all slots |
-| POST | `/slots/` | Create slot (admin only) |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/vehicles/` | JWT | Register a vehicle |
+| GET | `/vehicles/search?plate=` | — | Fuzzy search by plate |
+| GET | `/vehicles/search/attributes?color=&vehicle_type=` | — | Search by color / type |
+| GET | `/vehicles/user/me` | JWT | List my vehicles |
+| GET | `/vehicles/history?plate=` | JWT | Parking history |
+| GET | `/vehicles/{plate}/location` | JWT | Current slot location |
+| GET | `/vehicles/{plate}/map` | JWT | Floor map path |
+| POST | `/vehicles/{plate}/exit` | Admin | Mark vehicle as exited |
 
-### 🤖 AI Integration
+### Parking Slots
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/ai/detect` | **AI sends detection data** |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/slots/available` | — | List free slots |
+| GET | `/slots/all` | JWT | List all slots |
+| GET | `/slots/occupancy` | JWT | Occupancy summary |
+| GET | `/slots/{slot_id}` | JWT | Get one slot |
+| POST | `/slots/` | Admin | Create a slot |
+| PATCH | `/slots/{slot_id}` | Admin | Override slot status |
 
-### 📊 Admin
+### AI Integration
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/summary` | Facility analytics (admin only) |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/ai/scan-result` | — | Receive scan from AI vision service |
+
+### Floors & Sections
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/floors/all` | JWT | List all floors |
+| GET | `/floors/{floor_id}` | JWT | Get one floor |
+| GET | `/sections/all` | JWT | List all sections |
+| GET | `/sections/{section_id}` | JWT | Get one section |
+
+### Cameras
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/cameras/all` | Admin | List all cameras |
+| GET | `/cameras/active` | Admin | List active cameras |
+| GET | `/cameras/stats` | Admin | Camera statistics |
+| GET | `/cameras/{camera_id}` | Admin | Get one camera |
+| POST | `/cameras/` | Admin | Register a camera |
+| PATCH | `/cameras/{camera_id}` | Admin | Update a camera |
+
+### Admin & Analytics
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/admin/summary` | Admin | Facility overview |
+| GET | `/admin/users` | Admin | List all users |
+| POST | `/admin/users` | Admin | Create admin account |
+| PUT | `/admin/users/{user_id}` | Admin | Update user |
+| DELETE | `/admin/users/{user_id}` | Admin | Delete user |
+| GET | `/admin/analytics/summary` | Admin | Occupancy KPIs |
+| GET | `/admin/analytics/peak-hours` | Admin | Hourly entry stats |
+| GET | `/admin/analytics/heatmap` | Admin | Per-slot usage heatmap |
+| GET | `/admin/analytics/history` | Admin | Full parking timeline |
+| GET | `/admin/analytics/export/pdf` | Admin | Download PDF report |
 
 ---
 
-## 🔄 Example Requests (curl)
+## 🔑 Example Usage
 
-### Register
+### Register a new user
+
 ```bash
 curl -X POST http://localhost:8000/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@go2car.com", "password": "secret123"}'
+  -d '{"name": "Ali", "email": "ali@example.com", "password": "Secret@123"}'
 ```
 
 ### Login
+
 ```bash
 curl -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@go2car.com", "password": "secret123"}'
+  -d '{"email": "ali@example.com", "password": "Secret@123"}'
 ```
 
-### AI detects a car
+### AI service reports a vehicle arrival
+
 ```bash
-curl -X POST http://localhost:8000/ai/detect \
+curl -X POST http://localhost:8000/ai/scan-result \
   -H "Content-Type: application/json" \
   -d '{
-    "plate": "ABC123",
-    "slot_code": "F2-A-05",
-    "floor": 2,
+    "event_type": "arrival",
+    "slot_id": "F2-A-05",
+    "plate_text": "ABC1234",
     "color": "white",
-    "type": "sedan"
+    "car_type": "sedan",
+    "plate_confidence": 0.97
   }'
 ```
 
 ### Search for a car
+
 ```bash
-curl "http://localhost:8000/vehicles/search?plate=ABC123"
+curl "http://localhost:8000/vehicles/search?plate=ABC1234"
 ```
 
-### Vehicle exits
-```bash
-curl -X POST http://localhost:8000/vehicles/exit \
-  -H "Content-Type: application/json" \
-  -d '{"plate": "ABC123"}'
-```
+### Admin — get analytics summary
 
-### Search by attributes
 ```bash
-curl "http://localhost:8000/vehicles/search-by-attributes?color=white&type=sedan"
-```
-
-### Admin summary (requires admin JWT)
-```bash
-curl http://localhost:8000/admin/summary \
-  -H "Authorization: Bearer <your-admin-token>"
+curl http://localhost:8000/admin/analytics/summary \
+  -H "Authorization: Bearer <admin-token>"
 ```
 
 ---
 
 ## 🗄️ Database
 
-The project uses **SQLite by default** — the file `go2car.db` is created automatically on first run.
+**SQLite** is used by default — the file `go2car.db` is created automatically.
 
 To switch to **PostgreSQL**, update `.env`:
+
 ```
 DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/go2car_db
 ```
-Then install: `pip install psycopg2-binary`
 
----
+Then install the driver:
 
-## 🔐 Creating an Admin User
-
-Register normally, then open the database and set `is_admin = 1`:
 ```bash
-# SQLite
-sqlite3 go2car.db "UPDATE users SET is_admin=1 WHERE email='admin@go2car.com';"
+pip install psycopg2-binary
 ```
-
-Or register with `"is_admin": true` in the request body (useful for dev).
 
 ---
 
-## 🔄 System Flow
+## 🔮 Future Improvements
 
-```
-AI Camera
-   │
-   ▼
-POST /ai/detect
-   │
-   ├─ Upsert vehicle record
-   ├─ Create ParkingRecord (is_active=true)
-   └─ Mark ParkingSlot.is_occupied=true
+- [ ] Real-time slot updates via WebSocket
+- [ ] Rate limiting and API key auth for the AI service endpoint
+- [ ] Alembic database migrations
+- [ ] Dockerized deployment with Docker Compose
+- [ ] Unit and integration test suite
+- [ ] Image storage for detection snapshots
+- [ ] Push notifications for parking session events
 
-Mobile App
-   │
-   ▼
-GET /vehicles/search?plate=ABC123
-   │
-   └─ Returns: { slot_code: "F2-A-05", floor: 2 }
+---
 
-Vehicle leaves
-   │
-   ▼
-POST /vehicles/exit { "plate": "ABC123" }
-   │
-   ├─ ParkingRecord.is_active = false
-   ├─ ParkingRecord.exit_time = now()
-   └─ ParkingSlot.is_occupied = false
-```
+## 📄 License
+
+This project was built as a graduation project.
