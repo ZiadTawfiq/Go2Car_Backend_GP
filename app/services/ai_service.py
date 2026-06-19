@@ -33,6 +33,7 @@ def _assign_vehicle_to_slot(
     slot_code: str,
     color: str | None,
     vehicle_type: str | None,
+    image_path: str | None = None,
 ) -> dict:
     """
     Core pipeline: upsert vehicle → guard duplicates → link to slot → create record.
@@ -119,6 +120,7 @@ def _assign_vehicle_to_slot(
         vehicle_id=vehicle.id,
         slot_id=slot.id,
         is_active=True,
+        image_path=image_path,
     )
     db.add(record)
 
@@ -146,6 +148,7 @@ def park_vehicle(db: Session, data: ParkVehicleRequest) -> dict:
         slot_code=data.slot_code,
         color=data.color,
         vehicle_type=data.vehicle_type,
+        image_path=data.image_path,
     )
 
 
@@ -210,6 +213,7 @@ def handle_slot_scan(db: Session, data: SlotScanResult) -> dict:
         slot_code=data.slot_code,
         color=data.color,
         vehicle_type=data.vehicle_type,
+        image_path=data.image_path,
     )
 
     return {**result, "has_car": True}
