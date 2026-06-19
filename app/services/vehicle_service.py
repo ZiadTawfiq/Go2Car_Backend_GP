@@ -317,13 +317,17 @@ def get_vehicle_map(
 # =========================================================
 def get_vehicle_history(
     db: Session,
-    plate: Optional[str] = None
+    plate: Optional[str] = None,
+    user_id: Optional[int] = None
 ):
 
     query = (
         db.query(ParkingRecord)
         .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
     )
+
+    if user_id is not None:
+        query = query.filter(Vehicle.owner_id == user_id)
 
     if plate:
 
