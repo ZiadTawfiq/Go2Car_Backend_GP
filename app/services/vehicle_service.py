@@ -109,7 +109,8 @@ def search_by_plate(
             "plate_number": record.vehicle.plate_number,
             "slot": record.slot.slot_code,
             "section": record.slot.section.section_name,
-            "floor": record.slot.section.floor.floor_name
+            "floor": record.slot.section.floor.floor_name,
+            "image_path": record.image_path
         }
     }
 
@@ -156,7 +157,8 @@ def search_by_attributes(
             "section": r.slot.section.section_name,
             "floor": r.slot.section.floor.floor_name,
             "entry_time": r.entry_time,
-            "is_active": r.is_active
+            "is_active": r.is_active,
+            "image_path": r.image_path
         }
         for r in records
     ]
@@ -317,7 +319,8 @@ def get_vehicle_map(
 # =========================================================
 def get_vehicle_history(
     db: Session,
-    plate: Optional[str] = None
+    plate: Optional[str] = None,
+    user_id: Optional[int] = None
 ):
 
     query = (
@@ -351,7 +354,8 @@ def get_vehicle_history(
                 "floor": r.slot.section.floor.floor_name,
                 "entry_time": r.entry_time,
                 "exit_time": r.exit_time,
-                "is_active": r.is_active
+                "is_active": r.is_active,
+                "image_path": r.image_path
             }
             for r in records
         ]
