@@ -14,6 +14,7 @@ class ParkVehicleRequest(BaseModel):
     slot_code: str
     color: Optional[str] = None
     vehicle_type: Optional[str] = None
+    image_path: Optional[str] = None
 
 
 class ParkVehicleResponse(BaseModel):
@@ -39,6 +40,7 @@ class SlotScanResult(BaseModel):
     color_confidence: Optional[float] = None
     car_type: Optional[str] = None        # maps to → vehicle_type
     car_type_confidence: Optional[float] = None
+    image_path: Optional[str] = None
 
     # Departure fields
     duration_minutes: Optional[float] = None
