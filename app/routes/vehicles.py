@@ -102,17 +102,16 @@ def my_vehicles(
 
 
 # ---------------------------
-# SEARCH BY PLATE  [JWT required]
+# SEARCH BY PLATE  [public]
 # ---------------------------
 @router.get(
     "/search/plate",
     summary="Search by plate",
-    description="Find exactly where a vehicle is parked by plate number"
+    description="Find where a vehicle is parked by partial or full plate number"
 )
 def search_plate(
     plate: str = Query(..., description="License plate number to search for"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     return search_by_plate(db, plate)
 

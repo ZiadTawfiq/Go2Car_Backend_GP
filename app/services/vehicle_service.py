@@ -86,32 +86,35 @@ def search_by_plate(
 
     validate_plate(plate)
 
-    record = (
+    records = (
         db.query(ParkingRecord)
         .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
         .filter(
-            Vehicle.plate_number == plate,
+            Vehicle.plate_number.ilike(f"%{plate}%"),
             ParkingRecord.is_active == True,
         )
-        .first()
+        .all()
     )
 
-    if not record:
+    if not records:
 
         raise HTTPException(
             status_code=404,
-            detail=f"No active parking record for '{plate}'"
+            detail=f"No active parking record found for '{plate}'"
         )
 
     return {
         "success": True,
-        "data": {
-            "plate_number": record.vehicle.plate_number,
-            "slot": record.slot.slot_code,
-            "section": record.slot.section.section_name,
-            "floor": record.slot.section.floor.floor_name,
-            "image_path": record.image_path
-        }
+        "count": len(records),
+        "data": [
+            {
+                "plate_number": record.vehicle.plate_number,
+                "slot": record.slot.slot_code,
+                "section": record.slot.section.section_name,
+                "floor": record.slot.section.floor.floor_name,
+                "image_path": record.image_path
+            } for record in records
+        ]
     }
 
 
