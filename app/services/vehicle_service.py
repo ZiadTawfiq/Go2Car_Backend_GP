@@ -158,6 +158,8 @@ def search_by_attributes(
     results = [
         {
             "plate_number": r.vehicle.plate_number,
+            "vehicle_color": r.vehicle.color,
+            "vehicle_type": r.vehicle.vehicle_type,
             "slot": r.slot.slot_code,
             "section": r.slot.section.section_name,
             "floor": r.slot.section.floor.floor_name,
