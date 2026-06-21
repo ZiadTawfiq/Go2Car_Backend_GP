@@ -36,6 +36,7 @@ from app.routes.user import router as user_router
 from app.routes.floor import router as floor_router
 from app.routes.section import router as section_router
 from app.routes.camera import router as camera_router
+from app.routes.reservations import router as reservations_router
 
 
 # =========================================================
@@ -104,6 +105,7 @@ app.include_router(user_router)
 app.include_router(floor_router)
 app.include_router(section_router)
 app.include_router(camera_router)
+app.include_router(reservations_router)
 
 
 # =========================================================
