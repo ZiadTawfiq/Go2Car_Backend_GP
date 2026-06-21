@@ -2,7 +2,7 @@
 Admin service — summary analytics for the parking facility.
 """
 from datetime import datetime, timedelta
-from http.client import HTTPException
+from fastapi import HTTPException
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -256,7 +256,8 @@ def get_analytics_history(db: Session):
             "floor": r.slot.section.floor.floor_name,
             "entry_time": r.entry_time,
             "exit_time": r.exit_time,
-            "is_active": r.is_active
+            "is_active": r.is_active,
+            "image_path": r.image_path
         }
         for r in records
     ]

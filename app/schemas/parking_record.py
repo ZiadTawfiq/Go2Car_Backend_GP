@@ -15,6 +15,7 @@ class ParkingRecordOut(BaseModel):
     entry_time: Optional[datetime]
     exit_time: Optional[datetime]
     is_active: bool
+    image_path: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

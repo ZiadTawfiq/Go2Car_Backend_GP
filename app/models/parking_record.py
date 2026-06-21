@@ -25,3 +25,5 @@ class ParkingRecord(Base):
     exit_time = Column(DateTime(timezone=True), index=True, nullable=True)
 
     is_active = Column(Boolean, default=True)  # True as long as the vehicle still exists
+    image_path = Column(String, nullable=True)
+

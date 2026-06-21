@@ -107,31 +107,37 @@ def search_by_plate(
 
     validate_plate(plate)
 
-    record = (
+    records = (
         db.query(ParkingRecord)
         .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
         .filter(
-            Vehicle.plate_number == plate,
+            Vehicle.plate_number.ilike(f"%{plate}%"),
             ParkingRecord.is_active == True,
         )
-        .first()
+        .all()
     )
 
-    if not record:
+    if not records:
 
         raise HTTPException(
             status_code=404,
-            detail=f"No active parking record for '{plate}'"
+            detail=f"No active parking record found for '{plate}'"
         )
 
     return {
         "success": True,
-        "data": {
-            "plate_number": record.vehicle.plate_number,
-            "slot": record.slot.slot_code,
-            "section": record.slot.section.section_name,
-            "floor": record.slot.section.floor.floor_name
-        }
+        "count": len(records),
+        "data": [
+            {
+                "plate_number": record.vehicle.plate_number,
+                "vehicle_color": record.vehicle.color,
+                "vehicle_type": record.vehicle.vehicle_type,
+                "slot": record.slot.slot_code,
+                "section": record.slot.section.section_name,
+                "floor": record.slot.section.floor.floor_name,
+                "image_path": record.image_path
+            } for record in records
+        ]
     }
 
 
@@ -173,11 +179,14 @@ def search_by_attributes(
     results = [
         {
             "plate_number": r.vehicle.plate_number,
+            "vehicle_color": r.vehicle.color,
+            "vehicle_type": r.vehicle.vehicle_type,
             "slot": r.slot.slot_code,
             "section": r.slot.section.section_name,
             "floor": r.slot.section.floor.floor_name,
             "entry_time": r.entry_time,
-            "is_active": r.is_active
+            "is_active": r.is_active,
+            "image_path": r.image_path
         }
         for r in records
     ]
@@ -395,7 +404,8 @@ def get_vehicle_history(
                 "floor": r.slot.section.floor.floor_name,
                 "entry_time": r.entry_time,
                 "exit_time": r.exit_time,
-                "is_active": r.is_active
+                "is_active": r.is_active,
+                "image_path": r.image_path
             }
             for r in records
         ]

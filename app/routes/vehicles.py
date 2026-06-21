@@ -102,17 +102,16 @@ def my_vehicles(
 
 
 # ---------------------------
-# GET VEHICLE LOCATION  [JWT required]
+# SEARCH BY PLATE  [public]
 # ---------------------------
 @router.get(
-    "/{plate}/location",
-    summary="Get vehicle location",
-    description="Get slot and floor for a vehicle"
+    "/search/plate",
+    summary="Search by plate",
+    description="Find where a vehicle is parked by partial or full plate number"
 )
-def get_location(
-    plate: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+def search_plate(
+    plate: str = Query(..., description="License plate number to search for"),
+    db: Session = Depends(get_db)
 ):
     return search_by_plate(db, plate)
 
@@ -141,7 +140,7 @@ def get_map(
     summary="Exit vehicle",
     description="Mark vehicle as exited and free parking slot"
 )
-def exit(
+def exit_vehicle_route(
     plate: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -151,4 +150,4 @@ def exit(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
-    return exit_vehicle(db, plate)
+    return exit_vehicle(db, plate)
