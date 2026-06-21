@@ -50,9 +50,9 @@ if not existing_vehicle:
     vehicle = Vehicle(
         plate_number="ABC123",
         color="Black",
-        vehicle_type="SUV",
-        owner_id=admin.id
+        vehicle_type="SUV"
     )
+    vehicle.owners.append(admin)
 
     db.add(vehicle)
     db.commit()

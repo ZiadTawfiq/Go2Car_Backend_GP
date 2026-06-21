@@ -1,5 +1,5 @@
-from datetime import datetime
-from sqlalchemy import Boolean, Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy.sql import func
 from app.db.database import Base
 
 class BlacklistedToken(Base):
@@ -7,4 +7,4 @@ class BlacklistedToken(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     jti = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), index=True, server_default=func.now())

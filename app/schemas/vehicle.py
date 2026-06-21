@@ -1,7 +1,7 @@
 """
 Pydantic schemas for Vehicle.
 """
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
 
@@ -16,9 +16,10 @@ class VehicleResponse(BaseModel):
     plate_number: str
     color: Optional[str]
     vehicle_type: Optional[str]
-    owner_id: Optional[int]
+    owner_ids: List[int]
 
     model_config = {"from_attributes": True}
+
 
 
 class VehicleLocationResponse(BaseModel):

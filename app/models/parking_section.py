@@ -14,7 +14,7 @@ class ParkingSection(Base):
     section_name = Column(String, nullable=False)
 
     # Foreign Key
-    floor_id = Column(Integer, ForeignKey("parking_floors.id"))
+    floor_id = Column(Integer, ForeignKey("parking_floors.id"), index=True)
     # Relationship
     floor = relationship("ParkingFloor", back_populates="sections")
 

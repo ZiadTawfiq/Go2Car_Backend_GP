@@ -41,7 +41,7 @@ from app.routes.camera import router as camera_router
 # =========================================================
 # LOAD ENV
 # =========================================================
-load_dotenv(os.path.join(".env.example"))
+load_dotenv()
 
 
 # =========================================================

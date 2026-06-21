@@ -1,19 +1,22 @@
 """
 ParkingSlot model — represents a physical parking space in the facility.
 """
-from sqlalchemy import Boolean, Column, Integer, String, DateTime,ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Index, text
 from sqlalchemy.sql import func
 from app.db.database import Base
 from sqlalchemy.orm import relationship
 
 class ParkingSlot(Base):
     __tablename__ = "parking_slots"
+    __table_args__ = (
+        Index("idx_available_slots", "section_id", postgresql_where=text("is_occupied = false")),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     slot_code = Column(String, unique=True, index=True, nullable=False)
 
     # Foreign Key → Section
-    section_id = Column(Integer, ForeignKey("parking_sections.id"), nullable=False)
+    section_id = Column(Integer, ForeignKey("parking_sections.id"), index=True, nullable=False)
     # Relationship
     section = relationship("ParkingSection", back_populates="slots")
 

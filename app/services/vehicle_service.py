@@ -33,24 +33,45 @@ def create_vehicle(
     data: VehicleCreate,
     user_id: int
 ):
+    from app.models.user import User
 
     plate = normalize_plate(data.plate_number)
 
     validate_plate(plate)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
 
     existing = db.query(Vehicle).filter(
         Vehicle.plate_number == plate
     ).first()
 
     if existing:
-        raise HTTPException(400, "Vehicle already exists")
+        if user in existing.owners:
+            raise HTTPException(400, "Vehicle already registered to you")
+        
+        # Add user as an owner to the existing vehicle
+        existing.owners.append(user)
+        try:
+            db.commit()
+            logger.info(f"User {user_id} added to vehicle {plate}")
+            return {
+                "success": True,
+                "message": f"Added as an owner of vehicle '{plate}'",
+                "data": existing
+            }
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Failed to add owner to vehicle: {str(e)}")
+            raise HTTPException(500, "Database error")
 
     vehicle = Vehicle(
         plate_number=plate,
         color=data.color,
-        vehicle_type=data.vehicle_type,
-        owner_id=user_id
+        vehicle_type=data.vehicle_type
     )
+    vehicle.owners.append(user)
 
     try:
 
@@ -255,10 +276,13 @@ def get_user_vehicles(
     db: Session,
     user_id: int
 ):
+    from app.models.user import User
 
-    vehicles = db.query(Vehicle).filter(
-        Vehicle.owner_id == user_id
-    ).all()
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    vehicles = user.vehicles
 
     return {
         "success": True,
@@ -317,21 +341,41 @@ def get_vehicle_map(
 # =========================================================
 def get_vehicle_history(
     db: Session,
-    plate: Optional[str] = None
+    plate: Optional[str] = None,
+    user_id: Optional[int] = None
 ):
+    from app.models.user import User
 
     query = (
         db.query(ParkingRecord)
         .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
     )
 
-    if plate:
-
-        plate = normalize_plate(plate)
-
-        query = query.filter(
-            Vehicle.plate_number == plate
-        )
+    if user_id:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        
+        if plate:
+            plate = normalize_plate(plate)
+            vehicle = db.query(Vehicle).filter(Vehicle.plate_number == plate).first()
+            if not vehicle:
+                raise HTTPException(404, f"Vehicle '{plate}' not found")
+            
+            # Check ownership
+            if user_id not in [o.id for o in vehicle.owners]:
+                raise HTTPException(403, "You do not own this vehicle")
+                
+            query = query.filter(Vehicle.id == vehicle.id)
+        else:
+            vehicle_ids = [v.id for v in user.vehicles]
+            if not vehicle_ids:
+                raise HTTPException(404, "No history found")
+            query = query.filter(Vehicle.id.in_(vehicle_ids))
+    else:
+        if plate:
+            plate = normalize_plate(plate)
+            query = query.filter(Vehicle.plate_number == plate)
 
     records = query.order_by(
         ParkingRecord.entry_time.desc()
