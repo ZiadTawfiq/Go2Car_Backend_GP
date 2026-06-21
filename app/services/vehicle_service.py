@@ -109,6 +109,8 @@ def search_by_plate(
         "data": [
             {
                 "plate_number": record.vehicle.plate_number,
+                "vehicle_color": record.vehicle.color,
+                "vehicle_type": record.vehicle.vehicle_type,
                 "slot": record.slot.slot_code,
                 "section": record.slot.section.section_name,
                 "floor": record.slot.section.floor.floor_name,
