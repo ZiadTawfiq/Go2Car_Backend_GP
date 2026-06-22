@@ -71,7 +71,6 @@ def _create_detection_log(
             plate_number=plate_number or None,
             vehicle_color=vehicle_color or None,
             vehicle_type=vehicle_type or None,
-            event_type=event_type or None,
             flagged_for_review=(bool(event_type and event_type.startswith("error:"))),
         )
         db.add(log_entry)
