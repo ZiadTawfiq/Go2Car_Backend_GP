@@ -15,6 +15,7 @@ Shared pipeline when a car IS present:
   5. Create the parking record (vehicle_id FK + slot_id FK).
   6. Mark the slot as occupied.
 """
+import logging
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -22,7 +23,67 @@ from fastapi import HTTPException, status
 from app.models.vehicle import Vehicle
 from app.models.parking_slot import ParkingSlot
 from app.models.parking_record import ParkingRecord
+from app.models.detection_log import DetectionLog
 from app.schemas.ai import ParkVehicleRequest, SlotScanResult
+
+logger = logging.getLogger(__name__)
+
+
+# ── Detection logging ─────────────────────────────────────────────────────────
+
+def _create_detection_log(
+    db: Session,
+    camera_id: int,
+    slot_code: str | None,
+    plate_number: str | None,
+    vehicle_color: str | None,
+    vehicle_type: str | None,
+    event_type: str | None,
+) -> None:
+    """
+    Insert a raw detection record into detection_logs immediately upon receiving
+    a scan-result payload.  Isolated from the main business flow — any failure
+    here is caught and logged so it never interrupts parking processing.
+
+    Field mapping from AI payload:
+        camera_id      → camera_id     (FK → cameras.id)
+        slot_code      → resolved to   slot_id (FK → parking_slots.id), nullable
+        plate_text     → plate_number
+        color          → vehicle_color
+        car_type       → vehicle_type
+        event_type     → event_type    (stored as-is for admin review workflows)
+    """
+    try:
+        # Resolve slot_code → slot_id (nullable: unknown codes are stored as NULL
+        # rather than raising — logging must never block the main flow).
+        slot_id: int | None = None
+        if slot_code:
+            slot = (
+                db.query(ParkingSlot)
+                .filter(ParkingSlot.slot_code == slot_code)
+                .first()
+            )
+            slot_id = slot.id if slot else None
+
+        log_entry = DetectionLog(
+            camera_id=camera_id,
+            slot_id=slot_id,
+            plate_number=plate_number or None,
+            vehicle_color=vehicle_color or None,
+            vehicle_type=vehicle_type or None,
+            event_type=event_type or None,
+            flagged_for_review=(bool(event_type and event_type.startswith("error:"))),
+        )
+        db.add(log_entry)
+        db.flush()   # write within the current transaction; caller commits later
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "Detection log creation failed — skipping (camera_id=%s, slot=%s): %s",
+            camera_id,
+            slot_code,
+            exc,
+        )
+        db.rollback()
 
 
 # ── Shared internal helper ─────────────────────────────────────────────────────
@@ -159,6 +220,19 @@ def handle_slot_scan(db: Session, data: SlotScanResult) -> dict:
       - has_car=False → free the slot and close the parking record.
       - has_car=True  → assign the vehicle to the slot.
     """
+
+    # ── Detection log — fire before any business logic ─────────────────────
+    # Captures every inbound scan unconditionally so the detection_logs table
+    # reflects the raw stream from the AI edge node, independent of outcome.
+    _create_detection_log(
+        db=db,
+        camera_id=data.camera_id,
+        slot_code=data.slot_code,
+        plate_number=data.plate,
+        vehicle_color=data.color,
+        vehicle_type=data.vehicle_type,
+        event_type=data.event_type,
+    )
 
     # ── Branch A: No car — free the slot ──────────────────────────────────
     if not data.has_car:
