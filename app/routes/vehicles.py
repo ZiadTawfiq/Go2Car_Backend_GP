@@ -12,7 +12,9 @@ from app.services.vehicle_service import (
     fuzzy_search,
     get_user_vehicles,
     get_vehicle_map,
-    get_vehicle_history
+    get_vehicle_history,
+    update_vehicle,
+    delete_vehicle 
 )
 from app.routes.dependencies import get_current_user
 from app.models.user import User
@@ -150,4 +152,38 @@ def exit_vehicle_route(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
-    return exit_vehicle(db, plate)
+    return exit_vehicle(db, plate)
+
+
+# ---------------------------
+# UPDATE MY VEHICLE  [JWT required]
+# ---------------------------
+@router.patch(
+    "/{plate}",
+    summary="Update my vehicle",
+    description="Update color or vehicle_type of an owned vehicle"
+)
+def update(
+    plate: str,
+    color: Optional[str] = Query(None),
+    vehicle_type: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return update_vehicle(db, plate, color, vehicle_type, current_user.id)
+
+
+# ---------------------------
+# DELETE MY VEHICLE  [JWT required]
+# ---------------------------
+@router.delete(
+    "/{plate}",
+    summary="Delete my vehicle",
+    description="Remove ownership of a vehicle. Deletes it entirely if you are the last owner."
+)
+def delete(
+    plate: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return delete_vehicle(db, plate, current_user.id)

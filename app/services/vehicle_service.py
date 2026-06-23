@@ -410,3 +410,106 @@ def get_vehicle_history(
             for r in records
         ]
     }
+
+# =========================================================
+# UPDATE MY VEHICLE
+# =========================================================
+def update_vehicle(
+    db: Session,
+    plate: str,
+    color: Optional[str],
+    vehicle_type: Optional[str],
+    user_id: int
+):
+    plate = normalize_plate(plate)
+    validate_plate(plate)
+
+    vehicle = db.query(Vehicle).filter(Vehicle.plate_number == plate).first()
+    if not vehicle:
+        raise HTTPException(404, f"Vehicle '{plate}' not found")
+
+    if user_id not in [o.id for o in vehicle.owners]:
+        raise HTTPException(403, "You do not own this vehicle")
+
+    if not color and not vehicle_type:
+        raise HTTPException(400, "Provide at least one field to update (color or vehicle_type)")
+
+    if color:
+        vehicle.color = color
+    if vehicle_type:
+        vehicle.vehicle_type = vehicle_type
+
+    try:
+        db.commit()
+        db.refresh(vehicle)
+        logger.info(f"Vehicle updated: {plate} by user {user_id}")
+        return {
+            "success": True,
+            "message": f"Vehicle '{plate}' updated",
+            "data": {
+                "plate_number": vehicle.plate_number,
+                "color": vehicle.color,
+                "vehicle_type": vehicle.vehicle_type
+            }
+        }
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Update vehicle failed: {str(e)}")
+        raise HTTPException(500, "Database error")
+
+
+# =========================================================
+# DELETE MY VEHICLE (remove ownership)
+# =========================================================
+def delete_vehicle(
+    db: Session,
+    plate: str,
+    user_id: int
+):
+    from app.models.user import User
+
+    plate = normalize_plate(plate)
+    validate_plate(plate)
+
+    vehicle = db.query(Vehicle).filter(Vehicle.plate_number == plate).first()
+    if not vehicle:
+        raise HTTPException(404, f"Vehicle '{plate}' not found")
+
+    if user_id not in [o.id for o in vehicle.owners]:
+        raise HTTPException(403, "You do not own this vehicle")
+
+    # Block deletion if vehicle is currently parked
+    active_record = (
+        db.query(ParkingRecord)
+        .filter(
+            ParkingRecord.vehicle_id == vehicle.id,
+            ParkingRecord.is_active == True
+        )
+        .first()
+    )
+    if active_record:
+        raise HTTPException(
+            400,
+            "Cannot remove vehicle while it has an active parking session"
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+    try:
+        vehicle.owners.remove(user)
+
+        # If no owners remain, delete the vehicle entirely
+        if not vehicle.owners:
+            db.delete(vehicle)
+            msg = f"Vehicle '{plate}' fully deleted (no remaining owners)"
+        else:
+            msg = f"You have been removed as an owner of '{plate}'"
+
+        db.commit()
+        logger.info(f"Vehicle delete/disown: {plate} by user {user_id}")
+        return {"success": True, "message": msg}
+
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Delete vehicle failed: {str(e)}")
+        raise HTTPException(500, "Database error")
