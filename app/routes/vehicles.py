@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.db.database import get_db
-from app.schemas.vehicle import VehicleCreate
+from app.schemas.vehicle import VehicleCreate, VehicleSearchRequest
 from app.services.vehicle_service import (
     create_vehicle,
     search_by_plate,
@@ -14,7 +14,8 @@ from app.services.vehicle_service import (
     get_vehicle_map,
     get_vehicle_history,
     update_vehicle,
-    delete_vehicle 
+    delete_vehicle,
+    advanced_search
 )
 from app.routes.dependencies import get_current_user
 from app.models.user import User
@@ -187,3 +188,49 @@ def delete(
     current_user: User = Depends(get_current_user)
 ):
     return delete_vehicle(db, plate, current_user.id)
+
+
+# ---------------------------
+# ADVANCED SEARCH  [public]
+# Accepts any combination of optional filters via query params.
+# Lives at /vehicles/search/advanced to stay consistent with
+# the existing /search and /search/attributes siblings.
+# GET is used (not POST) because this is a read-only, idempotent
+# query — matching the pattern of every other search endpoint here.
+# ---------------------------
+@router.get(
+    "/search/advanced",
+    summary="Advanced vehicle search",
+    description=(
+        "Search currently parked vehicles by any combination of: "
+        "plate_number (partial), color, type, floor, section. "
+        "All filters are optional — omitting all returns every active vehicle."
+    )
+)
+def advanced_search_route(
+    plate_number: Optional[str] = Query(None, description="Partial plate number"),
+    color: Optional[str] = Query(None, description="Vehicle color"),
+    type: Optional[str] = Query(None, description="Vehicle type (Sedan, SUV, …)"),
+    floor: Optional[str] = Query(None, description="Floor name"),
+    section: Optional[str] = Query(None, description="Section name"),
+    db: Session = Depends(get_db),
+):
+    # Validate via schema — Pydantic coerces and validates all fields,
+    # even though they are all optional, so future validators added
+    # to VehicleSearchRequest are enforced automatically here.
+    params = VehicleSearchRequest(
+        plate_number=plate_number,
+        color=color,
+        type=type,
+        floor=floor,
+        section=section,
+    )
+
+    return advanced_search(
+        db=db,
+        plate_number=params.plate_number,
+        color=params.color,
+        vehicle_type=params.type,   # public field `type` → internal `vehicle_type`
+        floor=params.floor,
+        section=params.section,
+    )

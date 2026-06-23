@@ -2,17 +2,20 @@
 Core configuration — reads settings from the .env file.
 """
 from pydantic_settings import BaseSettings, SettingsConfigDict
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
 
-class Settings:
-    APP_NAME: str = os.getenv("APP_NAME", "Go2Car")
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "changeme")
-    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./go2car.db")
+class Settings(BaseSettings):
+    APP_NAME: str = "Go2Car"
+    SECRET_KEY: str = "changeme"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    DATABASE_URL: str = "sqlite:///./go2car.db"
+
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8", 
+        extra="ignore"
+    )
 
 
 settings = Settings()

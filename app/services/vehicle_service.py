@@ -8,6 +8,8 @@ from fastapi import HTTPException, status
 from app.models.vehicle import Vehicle
 from app.models.parking_record import ParkingRecord
 from app.models.parking_slot import ParkingSlot
+from app.models.parking_section import ParkingSection                
+from app.models.parking_floor import ParkingFloor                     
 from app.schemas.vehicle import VehicleCreate
 from app.utils import normalize_plate
 
@@ -513,3 +515,118 @@ def delete_vehicle(
         db.rollback()
         logger.error(f"Delete vehicle failed: {str(e)}")
         raise HTTPException(500, "Database error")
+    
+
+# =========================================================
+# ADVANCED SEARCH
+# =========================================================
+def advanced_search(
+    db: Session,
+    plate_number: Optional[str],
+    color: Optional[str],
+    vehicle_type: Optional[str],
+    floor: Optional[str],
+    section: Optional[str],
+):
+    """
+    Single unified search across all vehicle/location dimensions.
+
+    Design decisions:
+    ─────────────────
+    • Base query: ParkingRecord (is_active=True) is the anchor because
+      we only care about vehicles currently inside the facility.
+      Every result must have a live record — there is no point returning
+      a vehicle that is not parked right now.
+
+    • Joins are applied unconditionally (not only when a filter is present)
+      because the response always needs slot / section / floor data.
+      Doing the joins once here prevents N+1 lazy-load hits when we
+      serialize results in the loop at the bottom.
+        ParkingRecord → Vehicle      (for plate / color / type)
+        ParkingRecord → ParkingSlot  (for slot_code)
+        ParkingSlot   → Section      (for section_name + Floor FK)
+        Section       → Floor        (for floor_name)
+
+    • Filter order — most selective first:
+        1. floor   — few floors in any facility → biggest row reduction
+        2. section — subdivides a floor → second biggest reduction
+        3. plate   — ILIKE on a short string, still very selective
+        4. color   — low cardinality but less unique than plate
+        5. type    — fewest distinct values, applied last
+
+      SQLAlchemy sends all WHERE clauses to PostgreSQL in one query;
+      Postgres' planner will pick the best execution order regardless,
+      but writing them in selectivity order is good documentation and
+      also helps if a simpler DB engine is used later.
+
+    """
+
+    # ── Base query ────────────────────────────────────────────────────────────
+    # Start from ParkingRecord so we only touch currently parked vehicles.
+    # Eager-join all four related tables in one SQL statement to avoid
+    # lazy-loading (N+1) when we access .vehicle, .slot, .section, .floor
+    # during serialization below.
+    query = (
+        db.query(ParkingRecord)
+        .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
+        .join(ParkingSlot, ParkingSlot.id == ParkingRecord.slot_id)
+        .join(ParkingSection, ParkingSection.id == ParkingSlot.section_id)
+        .join(ParkingFloor, ParkingFloor.id == ParkingSection.floor_id)
+        .filter(ParkingRecord.is_active == True)
+    )
+
+    # ── Conditional filters (most selective → least selective) ────────────────
+
+    # 1. Floor — highest selectivity; a facility typically has 2-6 floors,
+    #    so this filter discards the largest chunk of rows immediately.
+    if floor:
+        query = query.filter(ParkingFloor.floor_name.ilike(f"%{floor}%"))
+
+    # 2. Section — within a floor there are usually a handful of sections;
+    #    second-most selective filter.
+    if section:
+        query = query.filter(ParkingSection.section_name.ilike(f"%{section}%"))
+
+    # 3. Plate — partial ILIKE match; plate strings are fairly unique so
+    #    even a 2-3 character fragment cuts results significantly.
+    if plate_number:
+        normalized = normalize_plate(plate_number)
+        query = query.filter(Vehicle.plate_number.ilike(f"%{normalized}%"))
+
+    # 4. Color — low-cardinality attribute (≈10 common colors); applied
+    #    after the more selective spatial and plate filters.
+    if color:
+        query = query.filter(Vehicle.color.ilike(f"%{color}%"))
+
+    # 5. Vehicle type — fewest distinct values (Sedan, SUV, etc.);
+    #    least selective, so applied last.
+    if vehicle_type:
+        query = query.filter(Vehicle.vehicle_type.ilike(f"%{vehicle_type}%"))
+
+    # ── Execute ───────────────────────────────────────────────────────────────
+    records = query.all()
+
+    if not records:
+        raise HTTPException(404, "No vehicles found matching the given filters")
+
+    # ── Serialize ─────────────────────────────────────────────────────────────
+    # All relationships are already loaded via the joins above — no extra
+    # queries are fired here.
+    data = [
+        {
+            "id": r.vehicle.id,
+            "plate_number": r.vehicle.plate_number,
+            "color": r.vehicle.color,
+            "type": r.vehicle.vehicle_type,
+            "slot": r.slot.slot_code,
+            "section": r.slot.section.section_name,
+            "floor": r.slot.section.floor.floor_name,
+        }
+        for r in records
+    ]
+
+    return {
+        "success": True,
+        "count": len(data),
+        "data": data,
+    }
