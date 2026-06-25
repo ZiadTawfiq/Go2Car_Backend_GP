@@ -16,9 +16,14 @@ Shared pipeline when a car IS present:
   6. Mark the slot as occupied.
 """
 import logging
+import base64
+import logging
+import os
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+
+logger = logging.getLogger(__name__)
 
 from app.models.vehicle import Vehicle
 from app.models.parking_slot import ParkingSlot
@@ -140,6 +145,8 @@ def _assign_vehicle_to_slot(
                 if current_vehicle.plate_number != plate:
                     # Update the active record's vehicle to the refined one
                     active_record.vehicle_id = vehicle.id
+                    if image_path:
+                        active_record.image_path = image_path
                     db.commit()
                     return {
                         "message": f"Updated slot '{slot_code}' vehicle plate from '{current_vehicle.plate_number}' to '{plate}'.",
@@ -148,6 +155,8 @@ def _assign_vehicle_to_slot(
                     }
                 else:
                     # Same plate, idempotent
+                    if image_path:
+                        active_record.image_path = image_path
                     db.commit()
                     return {
                         "message": "Vehicle is already parked.",
@@ -165,6 +174,8 @@ def _assign_vehicle_to_slot(
         .first()
     )
     if active_record:
+        if image_path:
+            active_record.image_path = image_path
         db.commit()
         current_slot = db.query(ParkingSlot).filter(
             ParkingSlot.id == active_record.slot_id
@@ -280,13 +291,35 @@ def handle_slot_scan(db: Session, data: SlotScanResult) -> dict:
     # still gets registered. The admin can correct it later via the dashboard.
     plate = data.plate if data.plate and data.plate.strip() else f"UNKNOWN-{data.slot_code}"
 
+    # Handle physical image upload if base64 is sent
+    image_path = data.image_path
+    if data.image_base64:
+        try:
+            os.makedirs(os.path.join("static", "uploads"), exist_ok=True)
+            encoded_data = data.image_base64
+            if "," in encoded_data:
+                encoded_data = encoded_data.split(",", 1)[1]
+            
+            image_bytes = base64.b64decode(encoded_data)
+            sanitized_plate = "".join(c for c in plate if c.isalnum())
+            filename = f"scan_{int(datetime.now(timezone.utc).timestamp())}_{data.slot_code}_{sanitized_plate}.jpg"
+            save_path = os.path.join("static", "uploads", filename)
+            
+            with open(save_path, "wb") as f:
+                f.write(image_bytes)
+                
+            image_path = f"/static/uploads/{filename}"
+            logger.info(f"Successfully saved AI image to {image_path}")
+        except Exception as e:
+            logger.error(f"Failed to decode/save Base64 image from AI: {str(e)}")
+
     result = _assign_vehicle_to_slot(
         db=db,
         plate=plate.upper(),
         slot_code=data.slot_code,
         color=data.color,
         vehicle_type=data.vehicle_type,
-        image_path=data.image_path,
+        image_path=image_path,
     )
 
     return {**result, "has_car": True}

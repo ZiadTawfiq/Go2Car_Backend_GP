@@ -41,6 +41,7 @@ class SlotScanResult(BaseModel):
     car_type: Optional[str] = None        # maps to → vehicle_type
     car_type_confidence: Optional[float] = None
     image_path: Optional[str] = None
+    image_base64: Optional[str] = None
 
     # Departure fields
     duration_minutes: Optional[float] = None

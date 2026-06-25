@@ -11,6 +11,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 from app.core.config import settings
@@ -63,6 +64,8 @@ Base.metadata.create_all(bind=engine)
 
 logger.info("Database tables initialized.")
 
+# Create static directory if not exists
+os.makedirs("static/uploads", exist_ok=True)
 
 # =========================================================
 # FASTAPI APP
@@ -91,6 +94,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static folder
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # =========================================================
