@@ -39,3 +39,20 @@ class Reservation(Base):
         nullable=False
     )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def user_name(self) -> str:
+        return self.user.name if self.user else ""
+
+    @property
+    def user_email(self) -> str:
+        return self.user.email if self.user else ""
+
+    @property
+    def plate_number(self) -> str:
+        return self.vehicle.plate_number if self.vehicle else ""
+
+    @property
+    def slot_code(self) -> str:
+        return self.slot.slot_code if self.slot else ""
+

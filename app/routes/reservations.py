@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.db.database import get_db
-from app.routes.dependencies import get_current_user
+from app.routes.dependencies import get_current_user, get_current_admin
 from app.models.user import User
 from app.schemas.reservation import ReservationCreate, ReservationResponse
 from app.services import reservation_service
@@ -57,3 +57,31 @@ def cancel(
     current_user: User = Depends(get_current_user)
 ):
     return reservation_service.cancel_reservation(db, current_user.id, reservation_id)
+
+
+@router.get(
+    "/all",
+    response_model=List[ReservationResponse],
+    summary="Get all reservations",
+    description="Retrieve all reservations in the system. Admin access required."
+)
+def get_all(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin)
+):
+    return reservation_service.get_all_reservations(db)
+
+
+@router.post(
+    "/{reservation_id}/approve",
+    response_model=ReservationResponse,
+    summary="Approve a reservation",
+    description="Approve a pending reservation, changing its status to active, marking the slot occupied, and creating a parking record. Admin access required."
+)
+def approve(
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin)
+):
+    return reservation_service.approve_reservation(db, reservation_id)
+

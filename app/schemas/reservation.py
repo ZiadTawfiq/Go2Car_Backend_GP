@@ -23,5 +23,10 @@ class ReservationResponse(BaseModel):
     end_time: datetime
     status: ReservationStatus
     created_at: datetime
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    plate_number: Optional[str] = None
+    slot_code: Optional[str] = None
 
     model_config = {"from_attributes": True}
+

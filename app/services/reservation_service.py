@@ -142,3 +142,66 @@ def cancel_reservation(db: Session, user_id: int, reservation_id: int) -> Reserv
     db.commit()
     db.refresh(reservation)
     return reservation
+
+
+def get_all_reservations(db: Session) -> list[Reservation]:
+    """
+    Returns all reservations in the system for admin view.
+    """
+    return db.query(Reservation).order_by(Reservation.created_at.desc()).all()
+
+
+def approve_reservation(db: Session, reservation_id: int) -> Reservation:
+    """
+    Allows an admin to approve/accept a reservation.
+    Changes status to 'active', marks the slot as occupied,
+    and inserts a record in the parking_records table.
+    """
+    from app.models.parking_record import ParkingRecord
+
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reservation not found."
+        )
+
+    if reservation.status != ReservationStatus.pending:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot approve reservation with status '{reservation.status.value}'. Only PENDING reservations can be approved."
+        )
+
+    # Check if slot is occupied
+    slot = reservation.slot
+    if not slot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Slot associated with reservation not found."
+        )
+
+    if slot.is_occupied:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Parking slot '{slot.slot_code}' is currently occupied."
+        )
+
+    # Update status to active
+    reservation.status = ReservationStatus.active
+    
+    # Mark slot as occupied
+    slot.is_occupied = True
+
+    # Create parking record
+    record = ParkingRecord(
+        vehicle_id=reservation.vehicle_id,
+        slot_id=reservation.slot_id,
+        entry_time=datetime.now(timezone.utc),
+        is_active=True
+    )
+    db.add(record)
+
+    db.commit()
+    db.refresh(reservation)
+    return reservation
+
