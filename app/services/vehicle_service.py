@@ -621,6 +621,7 @@ def advanced_search(
             "slot": r.slot.slot_code,
             "section": r.slot.section.section_name,
             "floor": r.slot.section.floor.floor_name,
+            "image_path": r.image_path,
         }
         for r in records
     ]
