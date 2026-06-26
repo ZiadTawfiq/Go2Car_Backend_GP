@@ -281,13 +281,13 @@ def seed_database():
             # =========================================================
             print("\n🅿️  Seeding Active Parking Records...")
             active_pairings = [
-                (vehicles_dict["EGP999"], slot_cam1_1),
-                (vehicles_dict["EGP888"], slot_cam1_2),
-                (vehicles_dict["EGP777"], slot_cam1_3),
-                (vehicles_dict["ABC123"], slot_legacy)
+                (vehicles_dict["EGP999"], slot_cam1_1, "static/uploads/parking_record_1.png"),
+                (vehicles_dict["EGP888"], slot_cam1_2, "static/uploads/parking_record_2.png"),
+                (vehicles_dict["EGP777"], slot_cam1_3, "static/uploads/parking_record_3.png"),
+                (vehicles_dict["ABC123"], slot_legacy, "static/uploads/parking_record_4.png")
             ]
 
-            for vehicle, slot in active_pairings:
+            for vehicle, slot, img_path in active_pairings:
                 existing_record = db.query(ParkingRecord).filter(
                     ParkingRecord.vehicle_id == vehicle.id,
                     ParkingRecord.is_active == True
@@ -298,13 +298,14 @@ def seed_database():
                         vehicle_id=vehicle.id,
                         slot_id=slot.id,
                         is_active=True,
-                        entry_time=datetime.datetime.now(datetime.timezone.utc)
+                        entry_time=datetime.datetime.now(datetime.timezone.utc),
+                        image_path=img_path
                     )
                     db.add(record)
                     
                     slot.is_occupied = True
                     db.add(slot)
-                    print(f"  ✅ Created active parking record: Vehicle {vehicle.plate_number} -> Slot {slot.slot_code}")
+                    print(f"  ✅ Created active parking record: Vehicle {vehicle.plate_number} -> Slot {slot.slot_code} (image: {img_path})")
                 else:
                     print(f"  ℹ️  Active parking record already exists for vehicle {vehicle.plate_number}")
 
