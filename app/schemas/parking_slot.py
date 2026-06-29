@@ -18,6 +18,7 @@ class ParkingSlotOut(BaseModel):
     slot_code: str
     section : ParkingSectionOut
     is_occupied: bool
+    status: str
     last_updated: Optional[datetime]
 
     model_config = {"from_attributes": True}

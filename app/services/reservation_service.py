@@ -189,17 +189,9 @@ def approve_reservation(db: Session, reservation_id: int) -> Reservation:
     # Update status to active
     reservation.status = ReservationStatus.active
     
-    # Mark slot as occupied
-    slot.is_occupied = True
-
-    # Create parking record
-    record = ParkingRecord(
-        vehicle_id=reservation.vehicle_id,
-        slot_id=reservation.slot_id,
-        entry_time=datetime.now(timezone.utc),
-        is_active=True
-    )
-    db.add(record)
+    # Note: We do NOT mark slot as occupied or create a ParkingRecord here.
+    # The slot status will dynamically show as "booked" due to the active reservation,
+    # and a ParkingRecord will be created once the vehicle physically enters/parks.
 
     db.commit()
     db.refresh(reservation)

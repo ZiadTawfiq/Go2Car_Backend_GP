@@ -24,3 +24,14 @@ class ParkingSlot(Base):
     last_updated = Column(DateTime(timezone=True), onupdate=func.now())
 
     records = relationship("ParkingRecord", back_populates="slot")
+
+    @property
+    def status(self) -> str:
+        if self.is_occupied:
+            return "occupied"
+        # Check if there is an approved active reservation (ReservationStatus.active)
+        from app.models.reservation import ReservationStatus
+        for res in self.reservations:
+            if res.status == ReservationStatus.active:
+                return "booked"
+        return "available"

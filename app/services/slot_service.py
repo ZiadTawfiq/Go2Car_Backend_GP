@@ -12,8 +12,17 @@ from app.schemas.parking_slot import ParkingSlotCreate,SlotOccupancyOut
 
 
 def get_available_slots(db: Session) -> List[ParkingSlot]:
-    """Return all slots that are currently free."""
-    return db.query(ParkingSlot).filter(ParkingSlot.is_occupied == False).options(
+    """Return all slots that are currently free and not booked."""
+    from app.models.reservation import Reservation, ReservationStatus
+    
+    booked_slot_ids = db.query(Reservation.slot_id).filter(
+        Reservation.status == ReservationStatus.active
+    ).subquery()
+
+    return db.query(ParkingSlot).filter(
+        ParkingSlot.is_occupied == False,
+        ~ParkingSlot.id.in_(booked_slot_ids)
+    ).options(
         joinedload(ParkingSlot.section).joinedload(ParkingSection.floor)
     ).all()
 
