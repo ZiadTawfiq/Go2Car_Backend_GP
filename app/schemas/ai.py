@@ -53,7 +53,7 @@ class SlotScanResult(BaseModel):
 
     @property
     def has_car(self) -> bool:
-        return self.event_type == "arrival"
+        return self.event_type == "arrival" or self.event_type.startswith("error:")
 
     @property
     def plate(self) -> Optional[str]:
