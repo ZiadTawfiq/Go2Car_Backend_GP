@@ -109,15 +109,14 @@ def seed_parking_structure():
           f"{len(garage)} floors, "
           f"{sum(len(s) for s in [f['sections'] for f in garage.values()])} sections")
 
-    # Identify all databases to seed (mirrors the approach in seed.py)
-    db_urls = [settings.DATABASE_URL]
-    sqlite_fallback = "sqlite:///./go2car.db"
+    # Identify database to seed (PostgreSQL only)
+    db_url = settings.DATABASE_URL
+    if "postgresql" not in db_url:
+        print(f"❌ Error: DATABASE_URL is not a PostgreSQL URL: {db_url}")
+        print("This script is configured to seed PostgreSQL databases only.")
+        sys.exit(1)
 
-    if "sqlite" not in settings.DATABASE_URL:
-        db_urls.append(sqlite_fallback)
-
-    # Make unique list
-    db_urls = list(dict.fromkeys(db_urls))
+    db_urls = [db_url]
 
     print("\n🌱 Starting parking structure seed for:")
     for url in db_urls:
