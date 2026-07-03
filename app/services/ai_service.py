@@ -29,6 +29,7 @@ from app.models.vehicle import Vehicle
 from app.models.parking_slot import ParkingSlot
 from app.models.parking_record import ParkingRecord
 from app.models.detection_log import DetectionLog
+from app.models.camera import Camera
 from app.schemas.ai import ParkVehicleRequest, SlotScanResult
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 def _create_detection_log(
     db: Session,
-    camera_id: int,
+    camera_id: str | int | None,
     slot_code: str | None,
     plate_number: str | None,
     vehicle_color: str | None,
@@ -59,9 +60,9 @@ def _create_detection_log(
         event_type     → event_type    (stored as-is for admin review workflows)
     """
     try:
-        # Resolve slot_code → slot_id (nullable: unknown codes are stored as NULL
-        # rather than raising — logging must never block the main flow).
+        # 1. Resolve slot_code → slot_id first
         slot_id: int | None = None
+        slot = None
         if slot_code:
             slot = (
                 db.query(ParkingSlot)
@@ -70,8 +71,36 @@ def _create_detection_log(
             )
             slot_id = slot.id if slot else None
 
+        # 2. Resolve camera
+        camera = None
+        # Try finding camera via the slot's section first (most reliable for local camera indexes)
+        if slot:
+            camera = db.query(Camera).filter(Camera.section_id == slot.section_id).first()
+
+        # Fallback to direct lookup by camera_id (name or ID)
+        if not camera and camera_id:
+            # Try by name
+            camera = db.query(Camera).filter(Camera.name == str(camera_id)).first()
+            if not camera:
+                # Try by ID
+                try:
+                    camera_id_int = int(camera_id)
+                    camera = db.query(Camera).filter(Camera.id == camera_id_int).first()
+                except ValueError:
+                    pass
+
+        if not camera:
+            logger.warning(
+                "Skipping detection log: Camera could not be resolved (camera_id=%s, slot_code=%s).",
+                camera_id,
+                slot_code,
+            )
+            return
+
+        resolved_camera_id = camera.id
+
         log_entry = DetectionLog(
-            camera_id=camera_id,
+            camera_id=resolved_camera_id,
             slot_id=slot_id,
             plate_number=plate_number or None,
             vehicle_color=vehicle_color or None,
@@ -144,9 +173,14 @@ def _assign_vehicle_to_slot(
             if current_vehicle:
                 if current_vehicle.plate_number != plate:
                     # Update the active record's vehicle to the refined one
-                    active_record.vehicle_id = vehicle.id
+                    active_record.vehicle = vehicle
                     if image_path:
                         active_record.image_path = image_path
+                    
+                    # Cleanup old placeholder vehicle if it starts with "UNKNOWN-"
+                    if current_vehicle.plate_number.startswith("UNKNOWN-"):
+                        db.delete(current_vehicle)
+                        
                     db.commit()
                     return {
                         "message": f"Updated slot '{slot_code}' vehicle plate from '{current_vehicle.plate_number}' to '{plate}'.",
