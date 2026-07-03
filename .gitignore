@@ -31,4 +31,4 @@ env/
 Thumbs.db
 
 # static files
-/static
+# /static
