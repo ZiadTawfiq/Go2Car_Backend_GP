@@ -87,9 +87,10 @@ def generate_verification_token():
 
 def send_verification_email(to_email: str, token: str):
     verification_link = f"https://go2carbackendgp-production.up.railway.app/auth/verify-email?token={token}"
+    # verification_link = f"http://localhost:8000/auth/verify-email?token={token}"
 
     message = Mail(
-        from_email='20220171@stud.fci-cu.edu.eg',
+        from_email='temptarek1899@gmail.com',
         to_emails= to_email,
         subject='Verify your Go2Car account',
         html_content=f"""
