@@ -39,6 +39,16 @@ def get_occupancy(
     return slot_service.get_occupancy(db)
 
 
+@router.get("/{slot_id}/map")
+def get_slot_map(
+    slot_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Return the map image path for a specific slot. [JWT required]"""
+    return slot_service.get_slot_map(db, slot_id)
+
+
 @router.get("/{slot_id}", response_model=ParkingSlotOut)
 def get_slot(
     slot_id: int,
