@@ -108,7 +108,6 @@ def get_slot_map(db: Session, slot_id: int) -> dict:
     section_code = slot.section.section_code  # e.g. "F1_A1"
 
     # Use absolute path relative to project root (works regardless of Railway CWD)
-    from pathlib import Path
     project_root = Path(__file__).resolve().parent.parent.parent
     maps_dir = project_root / "static" / "maps"
     map_file = maps_dir / f"{section_code}.png"
