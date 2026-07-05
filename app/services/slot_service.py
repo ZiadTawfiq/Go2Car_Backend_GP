@@ -1,11 +1,16 @@
 """
 Slot service — query available and all parking slots.
 """
+import os
+from pathlib import Path
 from typing import List
 
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, case
 from fastapi import HTTPException, status
+
+# Base directory for map images (relative to project root)
+MAPS_DIR = Path("static/maps")
 
 from app.models import ParkingSlot, ParkingSection
 from app.schemas.parking_slot import ParkingSlotCreate,SlotOccupancyOut
@@ -90,3 +95,24 @@ def update_slot_status(db: Session, slot_id: int, status: bool):
     db.refresh(slot)
 
     return slot
+
+
+def get_slot_map(db: Session, slot_id: int) -> dict:
+    """Return the map image path for a given slot."""
+    slot = get_slot_by_id(db, slot_id)
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+
+    section_code = slot.section.section_code
+    map_file = MAPS_DIR / f"{section_code}.png"
+
+    if not map_file.exists():
+        raise HTTPException(status_code=404, detail="Map image not found")
+
+    return {
+        "success": True,
+        "data": {
+            "map_path": f"/static/maps/{section_code}.png",
+            "slot": slot.slot_code,
+        }
+    }

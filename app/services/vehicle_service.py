@@ -334,12 +334,12 @@ def get_vehicle_map(
     if not record:
         raise HTTPException(404, "Vehicle not found")
 
-    floor_code = record.slot.section.floor.floor_code
+    section_code = record.slot.section.section_code
 
     return {
         "success": True,
         "data": {
-            "map_path": f"/static/maps/{floor_code}.png",
+            "map_path": f"/static/maps/{section_code}.png",
             "slot": record.slot.slot_code,
             "section": record.slot.section.section_name,
             "floor": record.slot.section.floor.floor_name
