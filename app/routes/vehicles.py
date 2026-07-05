@@ -120,7 +120,8 @@ def search_plate(
 
 
 # ---------------------------
-# GET VEHICLE MAP  [JWT required]
+# ---------------------------
+# GET VEHICLE MAP  [public]
 # ---------------------------
 @router.get(
     "/{plate}/map",
@@ -129,8 +130,7 @@ def search_plate(
 )
 def get_map(
     plate: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     return get_vehicle_map(db, plate)
 
