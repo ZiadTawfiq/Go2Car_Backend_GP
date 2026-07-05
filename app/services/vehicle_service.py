@@ -346,12 +346,12 @@ def get_vehicle_map(
 
     from pathlib import Path
     maps_dir = Path("static/maps")
-    map_file = maps_dir / f"{section_code}.png"
+    map_file = maps_dir / f"{section_code}.jpg"
 
     if not map_file.exists():
-        map_path = "/static/maps/map.png"
+        map_path = "/static/maps/map.jpg"
     else:
-        map_path = f"/static/maps/{section_code}.png"
+        map_path = f"/static/maps/{section_code}.jpg"
 
     return {
         "success": True,
