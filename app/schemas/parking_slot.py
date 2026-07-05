@@ -16,6 +16,7 @@ class ParkingSlotOut(BaseModel):
     """Response schema for a parking slot."""
     id: int
     slot_code: str
+    slot_number: str
     section : ParkingSectionOut
     is_occupied: bool
     status: str

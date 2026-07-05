@@ -35,3 +35,9 @@ class ParkingSlot(Base):
             if res.status == ReservationStatus.active:
                 return "booked"
         return "available"
+
+    @property
+    def slot_number(self) -> str:
+        if self.slot_code and "_" in self.slot_code:
+            return self.slot_code.split("_")[-1]
+        return self.slot_code

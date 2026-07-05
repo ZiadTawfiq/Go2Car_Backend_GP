@@ -27,6 +27,7 @@ class ReservationResponse(BaseModel):
     user_email: Optional[str] = None
     plate_number: Optional[str] = None
     slot_code: Optional[str] = None
+    slot_number: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

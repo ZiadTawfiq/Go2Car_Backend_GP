@@ -20,3 +20,17 @@ class ParkingSection(Base):
 
     cameras = relationship("Camera", back_populates="section", cascade="all, delete")
     slots = relationship("ParkingSlot", back_populates="section", cascade="all, delete")  
+
+    @property
+    def section_display(self) -> str:
+        if self.section_code and "_" in self.section_code:
+            return self.section_code.split("_")[-1]
+        return self.section_code
+
+    @property
+    def section_name_display(self) -> str:
+        if self.section_name:
+            import re
+            return re.sub(r'F\d+_', '', self.section_name)
+        return self.section_name
+

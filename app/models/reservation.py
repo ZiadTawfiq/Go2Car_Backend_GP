@@ -56,3 +56,8 @@ class Reservation(Base):
     def slot_code(self) -> str:
         return self.slot.slot_code if self.slot else ""
 
+    @property
+    def slot_number(self) -> str:
+        return self.slot.slot_number if self.slot else ""
+
+

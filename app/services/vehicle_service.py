@@ -135,7 +135,10 @@ def search_by_plate(
                 "vehicle_color": record.vehicle.color,
                 "vehicle_type": record.vehicle.vehicle_type,
                 "slot": record.slot.slot_code,
+                "slot_number": record.slot.slot_number,
                 "section": record.slot.section.section_name,
+                "section_display": record.slot.section.section_display,
+                "section_name_display": record.slot.section.section_name_display,
                 "floor": record.slot.section.floor.floor_name,
                 "image_path": record.image_path
             } for record in records
@@ -184,7 +187,10 @@ def search_by_attributes(
             "vehicle_color": r.vehicle.color,
             "vehicle_type": r.vehicle.vehicle_type,
             "slot": r.slot.slot_code,
+            "slot_number": r.slot.slot_number,
             "section": r.slot.section.section_name,
+            "section_display": r.slot.section.section_display,
+            "section_name_display": r.slot.section.section_name_display,
             "floor": r.slot.section.floor.floor_name,
             "entry_time": r.entry_time,
             "is_active": r.is_active,
@@ -402,7 +408,10 @@ def get_vehicle_history(
             {
                 "plate_number": r.vehicle.plate_number,
                 "slot": r.slot.slot_code,
+                "slot_number": r.slot.slot_number,
                 "section": r.slot.section.section_name,
+                "section_display": r.slot.section.section_display,
+                "section_name_display": r.slot.section.section_name_display,
                 "floor": r.slot.section.floor.floor_name,
                 "entry_time": r.entry_time,
                 "exit_time": r.exit_time,
@@ -619,7 +628,10 @@ def advanced_search(
             "color": r.vehicle.color,
             "type": r.vehicle.vehicle_type,
             "slot": r.slot.slot_code,
+            "slot_number": r.slot.slot_number,
             "section": r.slot.section.section_name,
+            "section_display": r.slot.section.section_display,
+            "section_name_display": r.slot.section.section_name_display,
             "floor": r.slot.section.floor.floor_name,
             "image_path": r.image_path,
         }

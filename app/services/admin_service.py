@@ -222,7 +222,10 @@ def get_heatmap_data(db: Session):
 
         data.append({
             "slot": slot.slot_code,
+            "slot_number": slot.slot_number,
             "section": slot.section.section_name,
+            "section_display": slot.section.section_display,
+            "section_name_display": slot.section.section_name_display,
             "floor": slot.section.floor.floor_name,
             "usage_count": usage_count,
             "occupancy_rate": occupancy_rate
@@ -252,7 +255,10 @@ def get_analytics_history(db: Session):
         {
             "plate_number": r.vehicle.plate_number,
             "slot": r.slot.slot_code,
+            "slot_number": r.slot.slot_number,
             "section": r.slot.section.section_name,
+            "section_display": r.slot.section.section_display,
+            "section_name_display": r.slot.section.section_name_display,
             "floor": r.slot.section.floor.floor_name,
             "entry_time": r.entry_time,
             "exit_time": r.exit_time,

@@ -21,6 +21,7 @@ def _serialize(log: DetectionLog) -> dict:
         "id": log.id,
         "camera_name": log.camera.name,
         "slot_code": log.slot.slot_code if log.slot else None,
+        "slot_number": log.slot.slot_number if log.slot else None,
         "plate_number": log.plate_number,
         "vehicle_color": log.vehicle_color,
         "vehicle_type": log.vehicle_type,
