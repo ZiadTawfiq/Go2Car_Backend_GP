@@ -105,8 +105,7 @@ def get_slot_map(db: Session, slot_id: int) -> dict:
     if not slot:
         raise HTTPException(status_code=404, detail="Slot not found")
 
-    full_section_code = slot.section.section_code
-    section_code = full_section_code.split("_")[1] if "_" in full_section_code else full_section_code
+    section_code = slot.section.section_code  # e.g. "F1_A1"
     map_file = MAPS_DIR / f"{section_code}.png"
 
     if not map_file.exists():
