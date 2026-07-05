@@ -528,44 +528,8 @@ def advanced_search(
     floor: Optional[str],
     section: Optional[str],
 ):
-    """
-    Single unified search across all vehicle/location dimensions.
 
-    Design decisions:
-    ─────────────────
-    • Base query: ParkingRecord (is_active=True) is the anchor because
-      we only care about vehicles currently inside the facility.
-      Every result must have a live record — there is no point returning
-      a vehicle that is not parked right now.
 
-    • Joins are applied unconditionally (not only when a filter is present)
-      because the response always needs slot / section / floor data.
-      Doing the joins once here prevents N+1 lazy-load hits when we
-      serialize results in the loop at the bottom.
-        ParkingRecord → Vehicle      (for plate / color / type)
-        ParkingRecord → ParkingSlot  (for slot_code)
-        ParkingSlot   → Section      (for section_name + Floor FK)
-        Section       → Floor        (for floor_name)
-
-    • Filter order — most selective first:
-        1. floor   — few floors in any facility → biggest row reduction
-        2. section — subdivides a floor → second biggest reduction
-        3. plate   — ILIKE on a short string, still very selective
-        4. color   — low cardinality but less unique than plate
-        5. type    — fewest distinct values, applied last
-
-      SQLAlchemy sends all WHERE clauses to PostgreSQL in one query;
-      Postgres' planner will pick the best execution order regardless,
-      but writing them in selectivity order is good documentation and
-      also helps if a simpler DB engine is used later.
-
-    """
-
-    # ── Base query ────────────────────────────────────────────────────────────
-    # Start from ParkingRecord so we only touch currently parked vehicles.
-    # Eager-join all four related tables in one SQL statement to avoid
-    # lazy-loading (N+1) when we access .vehicle, .slot, .section, .floor
-    # during serialization below.
     query = (
         db.query(ParkingRecord)
         .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
