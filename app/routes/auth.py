@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
+from datetime import timedelta
 from app.db.database import get_db
 from app.schemas.user import UserRegister, UserLogin, UserOut, Token, LoginResponse
 from app.services import auth_service
 from app.routes.dependencies import get_current_user, security
 from app.models.user import User
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -27,7 +28,7 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     return auth_service.login_user(db, data.email, data.password)
 
 
-@router.get("/verify-email",response_model=LoginResponse)
+@router.get("/verify-email", response_model=LoginResponse)
 def verify_email(token: str, db: Session = Depends(get_db)):
     return auth_service.verify_email(db, token)
 
@@ -43,3 +44,27 @@ def logout(
     jti = payload.get("jti")
 
     return auth_service.logout_user(db, jti)
+
+
+@router.post("/login/guest", response_model=LoginResponse)
+def login_as_guest():
+    """
+    Guest login — returns a short-lived JWT and a placeholder user object.
+    No database access required. The guest token expires in 24 hours.
+    """
+    guest_token = create_access_token(
+        data={"sub": "0", "is_admin": False, "role": "guest"},
+        expires_delta=timedelta(hours=24),
+    )
+    return {
+        "token": {
+            "access_token": guest_token,
+            "token_type": "bearer",
+        },
+        "user": {
+            "id": 0,
+            "name": "Guest",
+            "email": "guest@go2car.com",
+            "is_admin": False,
+        },
+    }
