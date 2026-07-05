@@ -1,3 +1,4 @@
+from sqlalchemy.orm import mapper
 from typing import List, Optional
 from datetime import datetime, timezone
 
@@ -340,12 +341,22 @@ def get_vehicle_map(
     if not record:
         raise HTTPException(404, "Vehicle not found")
 
-    section_code = record.slot.section.section_code
+    full_section_code = record.slot.section.section_code
+    section_code = full_section_code.split("_")[1] if "_" in full_section_code else full_section_code
+
+    from pathlib import Path
+    maps_dir = Path("static/maps")
+    map_file = maps_dir / f"{section_code}.png"
+
+    if not map_file.exists():
+        map_path = "/static/maps/map.png"
+    else:
+        map_path = f"/static/maps/{section_code}.png"
 
     return {
         "success": True,
         "data": {
-            "map_path": f"/static/maps/{section_code}.png",
+            "map_path": map_path,
             "slot": record.slot.slot_code,
             "section": record.slot.section.section_name,
             "floor": record.slot.section.floor.floor_name
