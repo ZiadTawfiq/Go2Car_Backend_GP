@@ -11,8 +11,7 @@ router = APIRouter(prefix="/sections", tags=["Sections"])
 
 @router.get("/all", response_model=list[ParkingSectionOut])
 def get_sections(
-    db: Session = Depends(get_db),
-    _: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     return section_service.get_all_sections(db)
 

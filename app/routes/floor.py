@@ -11,8 +11,7 @@ router = APIRouter(prefix="/floors", tags=["Floors"])
 
 @router.get("/all", response_model=list[ParkingFloorOut])
 def get_floors(
-    db: Session = Depends(get_db),
-    _: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     return floor_service.get_all_floors(db)
 
