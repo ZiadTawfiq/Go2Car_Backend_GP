@@ -362,7 +362,10 @@ def get_vehicle_map(
         "data": {
             "map_path": map_path,
             "slot": record.slot.slot_code,
+            "slot_number": record.slot.slot_number,
             "section": record.slot.section.section_name,
+            "section_display": record.slot.section.section_display,
+            "section_name_display": record.slot.section.section_name_display,
             "floor": record.slot.section.floor.floor_name
         }
     }
