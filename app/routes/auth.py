@@ -47,7 +47,7 @@ def logout(
 
 
 @router.post("/login/guest", response_model=LoginResponse)
-def login_as_guest():
+def login_as_guest(user_type: str = "guest"):
     """
     Guest login — returns a short-lived JWT and a placeholder user object.
     No database access required. The guest token expires in 24 hours.
@@ -66,5 +66,6 @@ def login_as_guest():
             "name": "Guest",
             "email": "guest@go2car.com",
             "is_admin": False,
+            "user_type": user_type,
         },
     }
