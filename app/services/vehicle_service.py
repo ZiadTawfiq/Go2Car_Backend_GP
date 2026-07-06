@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException, status
+from sqlalchemy import case, func, or_
 
 from app.models.vehicle import Vehicle
 from app.models.parking_record import ParkingRecord
@@ -556,7 +557,6 @@ def advanced_search(
     section: Optional[str],
 ):
 
-
     query = (
         db.query(ParkingRecord)
         .join(Vehicle, Vehicle.id == ParkingRecord.vehicle_id)
@@ -568,31 +568,48 @@ def advanced_search(
 
     # ── Conditional filters (most selective → least selective) ────────────────
 
-    # 1. Floor — highest selectivity; a facility typically has 2-6 floors,
-    #    so this filter discards the largest chunk of rows immediately.
+    # 1. Floor
     if floor:
         query = query.filter(ParkingFloor.floor_name.ilike(f"%{floor}%"))
 
-    # 2. Section — within a floor there are usually a handful of sections;
-    #    second-most selective filter.
+    # 2. Section
     if section:
         query = query.filter(ParkingSection.section_name.ilike(f"%{section}%"))
 
-    # 3. Plate — partial ILIKE match; plate strings are fairly unique so
-    #    even a 2-3 character fragment cuts results significantly.
+    # 3. Plate — substring match OR fuzzy trigram similarity, ranked best-first
+    plate_similarity = None
     if plate_number:
         normalized = normalize_plate(plate_number)
-        query = query.filter(Vehicle.plate_number.ilike(f"%{normalized}%"))
+        plate_similarity = func.similarity(Vehicle.plate_number, normalized)
 
-    # 4. Color — low-cardinality attribute (≈10 common colors); applied
-    #    after the more selective spatial and plate filters.
+        query = query.filter(
+            or_(
+                Vehicle.plate_number.ilike(f"%{normalized}%"),  # your original exact-substring rule
+                plate_similarity > 0.3,                          # catches typos e.g. ABD123 -> ABC123
+            )
+        )
+
+    # 4. Color
     if color:
         query = query.filter(Vehicle.color.ilike(f"%{color}%"))
 
-    # 5. Vehicle type — fewest distinct values (Sedan, SUV, etc.);
-    #    least selective, so applied last.
+    # 5. Vehicle type
     if vehicle_type:
         query = query.filter(Vehicle.vehicle_type.ilike(f"%{vehicle_type}%"))
+
+    # ── Ranking ─────────────────────────────────────────────────────────────
+    # Exact match first, then "starts with", then substring, then fuzzy matches
+    # ordered by similarity score.
+    if plate_number:
+        query = query.order_by(
+            case(
+                (Vehicle.plate_number == normalized, 0),
+                (Vehicle.plate_number.ilike(f"{normalized}%"), 1),
+                (Vehicle.plate_number.ilike(f"%{normalized}%"), 2),
+                else_=3,
+            ),
+            plate_similarity.desc(),
+        )
 
     # ── Execute ───────────────────────────────────────────────────────────────
     records = query.all()
@@ -601,8 +618,6 @@ def advanced_search(
         raise HTTPException(404, "No vehicles found matching the given filters")
 
     # ── Serialize ─────────────────────────────────────────────────────────────
-    # All relationships are already loaded via the joins above — no extra
-    # queries are fired here.
     data = [
         {
             "id": r.vehicle.id,
