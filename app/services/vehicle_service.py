@@ -585,7 +585,7 @@ def advanced_search(
         query = query.filter(
             or_(
                 Vehicle.plate_number.ilike(f"%{normalized}%"),  # your original exact-substring rule
-                plate_similarity > 0.3,                          # catches typos e.g. ABD123 -> ABC123
+                plate_similarity > 0.1,                          # catches typos e.g. ABD123 -> ABC123
             )
         )
 
