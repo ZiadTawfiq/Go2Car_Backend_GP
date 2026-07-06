@@ -15,7 +15,7 @@ class User(Base):
     password = Column(String, nullable=False)  # bcrypt hashed
 
     is_admin = Column(Boolean, default=False)
-
+    user_type = Column(String(20), nullable=False, default="normal")
     is_verified = Column(Boolean, default=False)
     verification_token = Column(String, nullable=True)
     verification_token_expires_at = Column(DateTime, nullable=True)

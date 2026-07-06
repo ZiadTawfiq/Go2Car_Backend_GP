@@ -36,6 +36,7 @@ def register_user(db: Session, data: UserRegister) -> User:
         password=hash_password(data.password),
         name=data.name,
         is_admin=False,
+        user_type= data.user_type,
         is_verified=False,
         verification_token=token,
         verification_token_expires_at=datetime.utcnow() + timedelta(minutes=30)

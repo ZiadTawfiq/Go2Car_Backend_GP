@@ -9,6 +9,7 @@ class UserRegister(BaseModel):
     name: str
     email: EmailStr
     password: str
+    user_type:str
 
 
 class UserLogin(BaseModel):
@@ -23,7 +24,7 @@ class UserOut(BaseModel):
     name: str
     email: str
     is_admin: bool
-
+    user_type: str
     model_config = {"from_attributes": True}
 
 class Token(BaseModel):
