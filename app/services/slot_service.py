@@ -29,6 +29,8 @@ def get_available_slots(db: Session) -> List[ParkingSlot]:
         ~ParkingSlot.id.in_(booked_slot_ids)
     ).options(
         joinedload(ParkingSlot.section).joinedload(ParkingSection.floor)
+    ).order_by(
+        ParkingSlot.id
     ).all()
 
 
@@ -38,6 +40,8 @@ def get_all_slots(db: Session) -> List[ParkingSlot]:
         ParkingSlot.is_occupied == False
     ).options(
         joinedload(ParkingSlot.section).joinedload(ParkingSection.floor)
+    ).order_by(
+        ParkingSlot.id
     ).all()
 
 
