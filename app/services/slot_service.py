@@ -33,10 +33,8 @@ def get_available_slots(db: Session) -> List[ParkingSlot]:
 
 
 def get_all_slots(db: Session) -> List[ParkingSlot]:
-    """Return every slot that is not occupied."""
-    return db.query(ParkingSlot).filter(
-        ParkingSlot.is_occupied == False
-    ).options(
+    """Return every slot (occupied + free)."""
+    return db.query(ParkingSlot).options(
         joinedload(ParkingSlot.section).joinedload(ParkingSection.floor)
     ).all()
 
