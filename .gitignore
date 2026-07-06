@@ -31,6 +31,6 @@ env/
 Thumbs.db
 
 # static files
-static/uploads
+static/uploads/
 
-*.JPG
+# *.JPG
