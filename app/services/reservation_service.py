@@ -197,3 +197,28 @@ def approve_reservation(db: Session, reservation_id: int) -> Reservation:
     db.refresh(reservation)
     return reservation
 
+
+def reject_reservation(db: Session, reservation_id: int) -> Reservation:
+    """
+    Allows an admin to reject/decline a pending or active reservation.
+    Changes status to 'cancelled'.
+    """
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reservation not found."
+        )
+
+    if reservation.status not in [ReservationStatus.pending, ReservationStatus.active]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot reject reservation with status '{reservation.status.value}'."
+        )
+
+    reservation.status = ReservationStatus.cancelled
+    db.commit()
+    db.refresh(reservation)
+    return reservation
+
+

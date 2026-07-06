@@ -85,3 +85,18 @@ def approve(
 ):
     return reservation_service.approve_reservation(db, reservation_id)
 
+
+@router.post(
+    "/{reservation_id}/reject",
+    response_model=ReservationResponse,
+    summary="Reject/Cancel a reservation by Admin",
+    description="Reject or cancel any pending or active reservation. Admin access required."
+)
+def reject(
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin)
+):
+    return reservation_service.reject_reservation(db, reservation_id)
+
+
