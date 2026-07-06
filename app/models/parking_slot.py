@@ -14,6 +14,7 @@ class ParkingSlot(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     slot_code = Column(String, unique=True, index=True, nullable=False)
+    slot_type = Column(String(20), nullable=False, default="normal")
 
     # Foreign Key → Section
     section_id = Column(Integer, ForeignKey("parking_sections.id"), index=True, nullable=False)
@@ -40,4 +41,4 @@ class ParkingSlot(Base):
     def slot_number(self) -> str:
         if self.slot_code and "_" in self.slot_code:
             return self.slot_code.split("_")[-1]
-        return self.slot_code
+        return self.slot_code

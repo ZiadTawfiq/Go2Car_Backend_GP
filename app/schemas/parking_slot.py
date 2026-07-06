@@ -17,6 +17,7 @@ class ParkingSlotOut(BaseModel):
     id: int
     slot_code: str
     slot_number: str
+    slot_type: str
     section : ParkingSectionOut
     is_occupied: bool
     status: str
