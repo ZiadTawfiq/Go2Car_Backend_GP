@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.parking_slot import ParkingSlotOut, ParkingSlotCreate, SlotOccupancyOut, SlotStatusUpdate
+from app.schemas.parking_slot import ParkingSlotOut, ParkingSlotCreate, SlotOccupancyOut, SlotTypeUpdate
 from app.services import slot_service
 from app.routes.dependencies import get_current_user, get_current_admin
 from app.models.user import User
@@ -72,11 +72,11 @@ def create_slot(
 
 
 @router.patch("/{slot_id}", response_model=ParkingSlotOut)
-def change_slot_status(
+def change_slot_type(
     slot_id: int,
-    data: SlotStatusUpdate,
+    data: SlotTypeUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin)
 ):
-    """Admin: manually override a slot's occupancy status. [JWT + admin]"""
-    return slot_service.update_slot_status(db, slot_id, data.is_occupied)
+    """Admin: manually update a slot's type. [JWT + admin]"""
+    return slot_service.update_slot_type(db, slot_id, data.slot_type)

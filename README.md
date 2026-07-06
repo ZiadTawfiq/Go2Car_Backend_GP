@@ -211,7 +211,7 @@ The database file (`go2car.db`) is created automatically on first run — no man
 | GET | `/slots/occupancy` | JWT | Occupancy summary |
 | GET | `/slots/{slot_id}` | JWT | Get one slot |
 | POST | `/slots/` | Admin | Create a slot |
-| PATCH | `/slots/{slot_id}` | Admin | Override slot status |
+| PATCH | `/slots/{slot_id}` | Admin | Update slot type |
 
 ### AI Integration
 

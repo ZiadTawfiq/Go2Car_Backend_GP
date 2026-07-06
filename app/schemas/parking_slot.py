@@ -35,5 +35,5 @@ class SlotOccupancyOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class SlotStatusUpdate(BaseModel):
-    is_occupied: bool
+class SlotTypeUpdate(BaseModel):
+    slot_type: str
