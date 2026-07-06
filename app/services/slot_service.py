@@ -110,10 +110,12 @@ def get_slot_map(db: Session, slot_id: int) -> dict:
     # Use absolute path relative to project root (works regardless of Railway CWD)
     project_root = Path(__file__).resolve().parent.parent.parent
     maps_dir = project_root / "static" / "maps"
-    map_file = maps_dir / f"{section_code}.png"
+    map_file = maps_dir / f"{section_code}.jpg"
 
-    # Always return the section-specific path — static server gives a clear 404 if missing
-    map_path = f"/static/maps/{section_code}.png"
+    if map_file.exists():
+        map_path = f"/static/maps/{section_code}.jpg"
+    else:
+        map_path = f"/static/maps/map.jpg"
 
     return {
         "success": True,

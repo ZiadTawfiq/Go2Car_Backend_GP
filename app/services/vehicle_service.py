@@ -14,6 +14,7 @@ from app.models.parking_section import ParkingSection
 from app.models.parking_floor import ParkingFloor                     
 from app.schemas.vehicle import VehicleCreate
 from app.utils import normalize_plate
+from pathlib import Path
 
 import logging
 
@@ -342,21 +343,17 @@ def get_vehicle_map(
     if not record:
         raise HTTPException(404, "Vehicle not found")
 
-    full_section_code = record.slot.section.section_code
-    # Use the full section_code as-is (e.g. "F1_A2") — files are named F1_A2.png
+    section_code = record.slot.section.section_code
 
-    import os
-    from pathlib import Path
     # Use absolute path relative to project root (works regardless of Railway CWD)
     project_root = Path(__file__).resolve().parent.parent.parent
     maps_dir = project_root / "static" / "maps"
-    map_file = maps_dir / f"{full_section_code}.png"
+    map_file = maps_dir / f"{section_code}.jpg"
 
     if map_file.exists():
-        map_path = f"/static/maps/{full_section_code}.png"
+        map_path = f"/static/maps/{section_code}.jpg"
     else:
-        # Fallback — return section path anyway (static server will 404 if missing)
-        map_path = f"/static/maps/{full_section_code}.png"
+        map_path = f"/static/maps/map.jpg"
 
     return {
         "success": True,
