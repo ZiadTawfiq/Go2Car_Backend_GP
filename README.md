@@ -711,19 +711,6 @@ USE_REDIS=false
 
 ---
 
-## 📸 Screenshots
-
-> *Screenshots of the running system*
-
-| Screenshot | Description |
-|-----------|-------------|
-| ![Swagger UI](docs/screenshots/swagger-ui.png) | **Swagger UI** — Interactive API documentation with try-it-out |
-| ![Admin Dashboard](docs/screenshots/dashboard.png) | **Admin Dashboard** — Occupancy analytics and management |
-| ![Detection Example](docs/screenshots/detection.png) | **AI Detection** — Vehicle scanned and registered |
-| ![Search Example](docs/screenshots/search.png) | **Vehicle Search** — Find your car by plate, color, or type |
-
----
-
 ## 🏛️ Engineering Practices
 
 This project demonstrates several software engineering principles relevant to backend development:
@@ -827,7 +814,6 @@ This project demonstrates several software engineering principles relevant to ba
 - [ ] Comprehensive unit and integration test suite  
 - [ ] Push notifications for parking session events  
 - [ ] Reservation expiry cron job  
-- [ ] Redis caching for occupancy queries  
 - [ ] Image thumbnail generation for detection snapshots  
 - [ ] Multi-garage support with facility-level hierarchy  
 - [ ] Swagger API versioning (v1, v2)  
